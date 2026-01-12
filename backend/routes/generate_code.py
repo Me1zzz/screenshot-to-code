@@ -3,8 +3,10 @@ from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 import traceback
 from typing import Callable, Awaitable
+import time
 from fastapi import APIRouter, WebSocket
 import openai
+from codegen.engineering import generate_engineered_html
 from codegen.utils import extract_html_content
 from config import (
     ANTHROPIC_API_KEY,
@@ -322,6 +324,7 @@ class ModelSelectionStage:
         input_mode: InputMode,
         openai_api_key: str | None,
         anthropic_api_key: str | None,
+        include_engineering_variant: bool,
         gemini_api_key: str | None = None,
     ) -> List[Llm]:
         """Select appropriate models based on available API keys"""
@@ -332,6 +335,7 @@ class ModelSelectionStage:
                 NUM_VARIANTS,
                 openai_api_key,
                 anthropic_api_key,
+                include_engineering_variant,
                 gemini_api_key,
             )
 
@@ -356,9 +360,17 @@ class ModelSelectionStage:
         num_variants: int,
         openai_api_key: str | None,
         anthropic_api_key: str | None,
+        include_engineering_variant: bool,
         gemini_api_key: str | None,
     ) -> List[Llm]:
         """Simple model cycling that scales with num_variants"""
+
+        llm_variant_count = num_variants
+        if include_engineering_variant and num_variants > 0:
+            llm_variant_count = max(num_variants - 1, 0)
+
+        if llm_variant_count == 0:
+            return [Llm.ENGINEERING] if include_engineering_variant else []
 
         # Define models based on available API keys
         if gemini_api_key and anthropic_api_key:
@@ -378,11 +390,14 @@ class ModelSelectionStage:
             raise Exception("No OpenAI or Anthropic key")
 
         # Cycle through models: [A, B] with num=5 becomes [A, B, A, B, A]
-        selected_models: List[Llm] = []
-        for i in range(num_variants):
-            selected_models.append(models[i % len(models)])
+        selected_variants: List[Llm] = []
+        for i in range(llm_variant_count):
+            selected_variants.append(models[i % len(models)])
 
-        return selected_models
+        if include_engineering_variant:
+            selected_variants.append(Llm.ENGINEERING)
+
+        return selected_variants
 
 
 class PromptCreationStage:
@@ -541,9 +556,12 @@ class ParallelGenerationStage:
         prompt_messages: List[ChatCompletionMessageParam],
         image_cache: Dict[str, str],
         params: Dict[str, str],
+        extracted_params: ExtractedParams,
     ) -> Dict[int, str]:
         """Process all variants in parallel and return completions"""
-        tasks = self._create_generation_tasks(variant_models, prompt_messages, params)
+        tasks = self._create_generation_tasks(
+            variant_models, prompt_messages, params, extracted_params
+        )
 
         # Dictionary to track variant tasks and their status
         variant_tasks: Dict[int, asyncio.Task[Completion]] = {}
@@ -572,12 +590,15 @@ class ParallelGenerationStage:
         variant_models: List[Llm],
         prompt_messages: List[ChatCompletionMessageParam],
         params: Dict[str, str],
+        extracted_params: ExtractedParams,
     ) -> List[Coroutine[Any, Any, Completion]]:
         """Create generation tasks for each variant model"""
         tasks: List[Coroutine[Any, Any, Completion]] = []
 
         for index, model in enumerate(variant_models):
-            if model in OPENAI_MODELS:
+            if model == Llm.ENGINEERING:
+                tasks.append(self._generate_engineering_completion(extracted_params))
+            elif model in OPENAI_MODELS:
                 if self.openai_api_key is None:
                     raise Exception("OpenAI API key is missing.")
 
@@ -705,6 +726,21 @@ class ParallelGenerationStage:
             model=image_generation_model,
         )
 
+    async def _generate_engineering_completion(
+        self,
+        extracted_params: ExtractedParams,
+    ) -> Completion:
+        start_time = time.perf_counter()
+        html_output = generate_engineered_html(
+            stack=extracted_params.stack,
+            input_mode=extracted_params.input_mode,
+            generation_type=extracted_params.generation_type,
+            prompt=extracted_params.prompt,
+            history=extracted_params.history,
+        )
+        duration = time.perf_counter() - start_time
+        return {"duration": duration, "code": html_output}
+
     async def _process_variant_completion(
         self,
         index: int,
@@ -722,10 +758,13 @@ class ParallelGenerationStage:
 
             try:
                 # Process images for this variant
-                processed_html = await self._perform_image_generation(
-                    completion["code"],
-                    image_cache,
-                )
+                if model != Llm.ENGINEERING:
+                    processed_html = await self._perform_image_generation(
+                        completion["code"],
+                        image_cache,
+                    )
+                else:
+                    processed_html = completion["code"]
 
                 # Extract HTML content
                 processed_html = extract_html_content(processed_html)
@@ -861,6 +900,8 @@ class CodeGenerationMiddleware(Middleware):
                         input_mode=context.extracted_params.input_mode,
                         openai_api_key=context.extracted_params.openai_api_key,
                         anthropic_api_key=context.extracted_params.anthropic_api_key,
+                        include_engineering_variant=context.extracted_params.stack
+                        in ["html_css", "html_tailwind"],
                         gemini_api_key=GEMINI_API_KEY,
                     )
 
@@ -879,6 +920,7 @@ class CodeGenerationMiddleware(Middleware):
                             prompt_messages=context.prompt_messages,
                             image_cache=context.image_cache,
                             params=context.params,
+                            extracted_params=context.extracted_params,
                         )
                     )
 
