@@ -30,6 +30,7 @@ class Llm(Enum):
     O1_2024_12_17 = "o1-2024-12-17"
     O4_MINI_2025_04_16 = "o4-mini-2025-04-16"
     O3_2025_04_16 = "o3-2025-04-16"
+    ENGINEERING = "engineering"
 
 
 class Completion(TypedDict):
@@ -54,6 +55,7 @@ MODEL_PROVIDER: dict[Llm, str] = {
     Llm.O1_2024_12_17: "openai",
     Llm.O4_MINI_2025_04_16: "openai",
     Llm.O3_2025_04_16: "openai",
+    Llm.ENGINEERING: "engineering",
     # Anthropic models
     Llm.CLAUDE_3_SONNET: "anthropic",
     Llm.CLAUDE_3_OPUS: "anthropic",
