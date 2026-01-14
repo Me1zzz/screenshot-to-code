@@ -64,6 +64,24 @@ function SettingsDialog({ settings, setSettings }: Props) {
             }
           />
         </div>
+        <div className="flex items-center space-x-2">
+          <Label htmlFor="engineering-variant">
+            <div>Engineering Variant</div>
+            <div className="font-light mt-2 text-xs">
+              Include the engineering-focused variant in results.
+            </div>
+          </Label>
+          <Switch
+            id="engineering-variant"
+            checked={settings.isEngineeringVariantEnabled}
+            onCheckedChange={() =>
+              setSettings((s) => ({
+                ...s,
+                isEngineeringVariantEnabled: !s.isEngineeringVariantEnabled,
+              }))
+            }
+          />
+        </div>
         <div className="flex flex-col space-y-6">
           <div>
             <Label htmlFor="openai-api-key">
@@ -130,6 +148,70 @@ function SettingsDialog({ settings, setSettings }: Props) {
                 }))
               }
             />
+          </div>
+
+          <div className="space-y-3 rounded-md border border-border p-4">
+            <div>
+              <Label htmlFor="engineering-openai-api-key">
+                <div>Engineering OpenAI API key</div>
+                <div className="font-light mt-1 text-xs leading-relaxed">
+                  Used for engineering variants that require VLM support.
+                </div>
+              </Label>
+              <Input
+                id="engineering-openai-api-key"
+                placeholder="Engineering OpenAI API key"
+                value={settings.engineeringOpenAiApiKey || ""}
+                onChange={(e) =>
+                  setSettings((s) => ({
+                    ...s,
+                    engineeringOpenAiApiKey: e.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            {!IS_RUNNING_ON_CLOUD && (
+              <div>
+                <Label htmlFor="engineering-openai-base-url">
+                  <div>Engineering OpenAI Base URL (optional)</div>
+                  <div className="font-light mt-1 text-xs leading-relaxed">
+                    Use a proxy URL for engineering-only requests.
+                  </div>
+                </Label>
+                <Input
+                  id="engineering-openai-base-url"
+                  placeholder="Engineering OpenAI Base URL"
+                  value={settings.engineeringOpenAiBaseURL || ""}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      engineeringOpenAiBaseURL: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="engineering-openai-model">
+                <div>Engineering OpenAI Model</div>
+                <div className="font-light mt-1 text-xs leading-relaxed">
+                  Model name for engineering variant calls.
+                </div>
+              </Label>
+              <Input
+                id="engineering-openai-model"
+                placeholder="gpt-4o-mini"
+                value={settings.engineeringOpenAiModel}
+                onChange={(e) =>
+                  setSettings((s) => ({
+                    ...s,
+                    engineeringOpenAiModel: e.target.value,
+                  }))
+                }
+              />
+            </div>
           </div>
 
           <Accordion type="single" collapsible className="w-full">
