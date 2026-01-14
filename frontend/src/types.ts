@@ -11,6 +11,10 @@ export interface Settings {
   openAiBaseURL: string | null;
   screenshotOneApiKey: string | null;
   isImageGenerationEnabled: boolean;
+  isEngineeringVariantEnabled: boolean;
+  engineeringOpenAiApiKey: string | null;
+  engineeringOpenAiBaseURL: string | null;
+  engineeringOpenAiModel: string;
   editorTheme: EditorTheme;
   generatedCodeConfig: Stack;
   codeGenerationModel: CodeGenerationModel;

@@ -212,6 +212,10 @@ class ExtractedParams:
     stack: Stack
     input_mode: InputMode
     should_generate_images: bool
+    is_engineering_variant_enabled: bool
+    engineering_openai_api_key: str | None
+    engineering_openai_base_url: str | None
+    engineering_openai_model: str
     openai_api_key: str | None
     anthropic_api_key: str | None
     openai_base_url: str | None
@@ -245,6 +249,23 @@ class ParameterExtractionStage:
             raise ValueError(f"Invalid input mode: {input_mode}")
         validated_input_mode = cast(InputMode, input_mode)
 
+        default_include_engineering_variant = validated_stack in [
+            "html_css",
+            "html_tailwind",
+        ]
+        include_engineering_variant_param = params.get(
+            "isEngineeringVariantEnabled"
+        )
+        if include_engineering_variant_param is None:
+            include_engineering_variant = default_include_engineering_variant
+        elif isinstance(include_engineering_variant_param, bool):
+            include_engineering_variant = include_engineering_variant_param
+        else:
+            include_engineering_variant = (
+                str(include_engineering_variant_param).lower()
+                in ["true", "1", "yes"]
+            )
+
         openai_api_key = self._get_from_settings_dialog_or_env(
             params, "openAiApiKey", OPENAI_API_KEY
         )
@@ -267,6 +288,14 @@ class ParameterExtractionStage:
         # Get the image generation flag from the request. Fall back to True if not provided.
         should_generate_images = bool(params.get("isImageGenerationEnabled", True))
 
+        engineering_openai_api_key = params.get(
+            "engineeringOpenAiApiKey"
+        ) or openai_api_key
+        engineering_openai_base_url = params.get(
+            "engineeringOpenAiBaseURL"
+        ) or openai_base_url
+        engineering_openai_model = params.get("engineeringOpenAiModel") or "gpt-4o-mini"
+
         # Extract and validate generation type
         generation_type = params.get("generationType", "create")
         if generation_type not in ["create", "update"]:
@@ -287,6 +316,10 @@ class ParameterExtractionStage:
             stack=validated_stack,
             input_mode=validated_input_mode,
             should_generate_images=should_generate_images,
+            is_engineering_variant_enabled=include_engineering_variant,
+            engineering_openai_api_key=engineering_openai_api_key,
+            engineering_openai_base_url=engineering_openai_base_url,
+            engineering_openai_model=engineering_openai_model,
             openai_api_key=openai_api_key,
             anthropic_api_key=anthropic_api_key,
             openai_base_url=openai_base_url,
@@ -737,6 +770,9 @@ class ParallelGenerationStage:
             generation_type=extracted_params.generation_type,
             prompt=extracted_params.prompt,
             history=extracted_params.history,
+            openai_api_key=extracted_params.engineering_openai_api_key,
+            openai_base_url=extracted_params.engineering_openai_base_url,
+            openai_model=extracted_params.engineering_openai_model,
         )
         duration = time.perf_counter() - start_time
         return {"duration": duration, "code": html_output}
@@ -900,8 +936,7 @@ class CodeGenerationMiddleware(Middleware):
                         input_mode=context.extracted_params.input_mode,
                         openai_api_key=context.extracted_params.openai_api_key,
                         anthropic_api_key=context.extracted_params.anthropic_api_key,
-                        include_engineering_variant=context.extracted_params.stack
-                        in ["html_css", "html_tailwind"],
+                        include_engineering_variant=context.extracted_params.is_engineering_variant_enabled,
                         gemini_api_key=GEMINI_API_KEY,
                     )
 

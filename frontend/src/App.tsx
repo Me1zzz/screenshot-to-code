@@ -70,6 +70,10 @@ function App() {
       anthropicApiKey: null,
       screenshotOneApiKey: null,
       isImageGenerationEnabled: true,
+      isEngineeringVariantEnabled: true,
+      engineeringOpenAiApiKey: null,
+      engineeringOpenAiBaseURL: null,
+      engineeringOpenAiModel: "gpt-4o-mini",
       editorTheme: EditorTheme.COBALT,
       generatedCodeConfig: Stack.HTML_TAILWIND,
       codeGenerationModel: CodeGenerationModel.CLAUDE_4_5_SONNET_2025_09_29,
@@ -99,6 +103,31 @@ function App() {
       }));
     }
   }, [settings.generatedCodeConfig, setSettings]);
+
+  useEffect(() => {
+    if (typeof settings.isEngineeringVariantEnabled !== "boolean") {
+      const defaultValue =
+        settings.generatedCodeConfig === Stack.HTML_TAILWIND ||
+        settings.generatedCodeConfig === Stack.HTML_CSS;
+      setSettings((prev) => ({
+        ...prev,
+        isEngineeringVariantEnabled: defaultValue,
+      }));
+    }
+  }, [
+    settings.generatedCodeConfig,
+    settings.isEngineeringVariantEnabled,
+    setSettings,
+  ]);
+
+  useEffect(() => {
+    if (!settings.engineeringOpenAiModel) {
+      setSettings((prev) => ({
+        ...prev,
+        engineeringOpenAiModel: "gpt-4o-mini",
+      }));
+    }
+  }, [settings.engineeringOpenAiModel, setSettings]);
 
   // Functions
   const reset = () => {

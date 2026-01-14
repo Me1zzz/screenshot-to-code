@@ -213,6 +213,9 @@ def generate_engineered_html(
     generation_type: Literal["create", "update"],
     prompt: PromptContent,
     history: list[dict[str, Any]],
+    openai_api_key: str | None = None,
+    openai_base_url: str | None = None,
+    openai_model: str | None = None,
 ) -> str:
     instruction = _resolve_instruction_text(generation_type, prompt, history)
     safe_instruction = html.escape(instruction) if instruction else ""
