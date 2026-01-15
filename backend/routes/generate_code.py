@@ -61,6 +61,7 @@ MessageType = Literal[
 from image_generation.core import generate_images
 from prompts import create_prompt
 from prompts.claude_prompts import VIDEO_PROMPT
+from prompts.engineering_refinement import assemble_engineering_refinement_prompt
 from prompts.types import Stack, PromptContent
 
 # from utils import pprint_prompt
@@ -630,7 +631,9 @@ class ParallelGenerationStage:
 
         for index, model in enumerate(variant_models):
             if model == Llm.ENGINEERING:
-                tasks.append(self._generate_engineering_completion(extracted_params))
+                tasks.append(
+                    self._generate_engineering_completion(extracted_params, index)
+                )
             elif model in OPENAI_MODELS:
                 if self.openai_api_key is None:
                     raise Exception("OpenAI API key is missing.")
@@ -762,6 +765,7 @@ class ParallelGenerationStage:
     async def _generate_engineering_completion(
         self,
         extracted_params: ExtractedParams,
+        index: int,
     ) -> Completion:
         start_time = time.perf_counter()
         html_output = generate_engineered_html(
@@ -774,8 +778,61 @@ class ParallelGenerationStage:
             openai_base_url=extracted_params.engineering_openai_base_url,
             openai_model=extracted_params.engineering_openai_model,
         )
-        duration = time.perf_counter() - start_time
-        return {"duration": duration, "code": html_output}
+
+        if not extracted_params.engineering_openai_api_key:
+            duration = time.perf_counter() - start_time
+            return {"duration": duration, "code": html_output}
+
+        prompt_messages = assemble_engineering_refinement_prompt(
+            stack=extracted_params.stack,
+            input_mode=extracted_params.input_mode,
+            generation_type=extracted_params.generation_type,
+            prompt=extracted_params.prompt,
+            history=extracted_params.history,
+            engineered_html=html_output,
+        )
+
+        try:
+            completion = await stream_openai_response(
+                prompt_messages,
+                api_key=extracted_params.engineering_openai_api_key,
+                base_url=extracted_params.engineering_openai_base_url,
+                callback=lambda x: self._process_chunk(x, index),
+                model_name=extracted_params.engineering_openai_model,
+            )
+            return completion
+        except openai.AuthenticationError as e:
+            print(f"[VARIANT {index + 1}] Engineering OpenAI Authentication failed", e)
+            error_message = (
+                "Incorrect Engineering OpenAI key. Please make sure your Engineering OpenAI API key is correct."
+                + (
+                    " Alternatively, you can purchase code generation credits directly on this website."
+                    if IS_PROD
+                    else ""
+                )
+            )
+            await self.send_message("variantError", error_message, index)
+            raise VariantErrorAlreadySent(e)
+        except openai.NotFoundError as e:
+            print(f"[VARIANT {index + 1}] Engineering OpenAI Model not found", e)
+            error_message = (
+                e.message
+                + ". Please make sure your Engineering OpenAI model name is valid."
+            )
+            await self.send_message("variantError", error_message, index)
+            raise VariantErrorAlreadySent(e)
+        except openai.RateLimitError as e:
+            print(f"[VARIANT {index + 1}] Engineering OpenAI Rate limit exceeded", e)
+            error_message = (
+                "Engineering OpenAI error - 'You exceeded your current quota, please check your plan and billing details.'"
+                + (
+                    " Alternatively, you can purchase code generation credits directly on this website."
+                    if IS_PROD
+                    else ""
+                )
+            )
+            await self.send_message("variantError", error_message, index)
+            raise VariantErrorAlreadySent(e)
 
     async def _process_variant_completion(
         self,
