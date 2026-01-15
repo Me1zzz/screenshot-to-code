@@ -7,7 +7,11 @@ import time
 from fastapi import APIRouter, WebSocket
 import openai
 from codegen.engineering import generate_engineered_html
-from codegen.utils import extract_html_content
+from codegen.utils import (
+    extract_html_content,
+    replace_base64_data_urls,
+    restore_base64_placeholders,
+)
 from config import (
     ANTHROPIC_API_KEY,
     GEMINI_API_KEY,
@@ -799,13 +803,14 @@ class ParallelGenerationStage:
             duration = time.perf_counter() - start_time
             return {"duration": duration, "code": html_output}
 
+        scrubbed_html, mapping = replace_base64_data_urls(html_output)
         prompt_messages = assemble_engineering_refinement_prompt(
             stack=extracted_params.stack,
             input_mode=extracted_params.input_mode,
             generation_type=extracted_params.generation_type,
             prompt=extracted_params.prompt,
             history=extracted_params.history,
-            engineered_html=html_output,
+            engineered_html=scrubbed_html,
         )
 
         try:
@@ -815,6 +820,9 @@ class ParallelGenerationStage:
                 base_url=extracted_params.engineering_openai_base_url,
                 callback=lambda x: self._process_chunk(x, index),
                 model_name=extracted_params.engineering_openai_model,
+            )
+            completion["code"] = restore_base64_placeholders(
+                completion["code"], mapping
             )
             return completion
         except openai.AuthenticationError as e:
