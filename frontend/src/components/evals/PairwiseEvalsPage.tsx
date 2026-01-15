@@ -49,7 +49,7 @@ function PairwiseEvalsPage() {
 
   const loadEvals = async () => {
     if (!folder1Path || !folder2Path) {
-      alert("Please enter both folder paths");
+      alert("请输入两个文件夹路径");
       return;
     }
 
@@ -73,9 +73,7 @@ function PairwiseEvalsPage() {
       });
     } catch (error) {
       console.error("Error loading evals:", error);
-      alert(
-        "Error loading evals. Please check the folder paths and try again."
-      );
+      alert("加载评测失败。请检查文件夹路径后重试。");
     } finally {
       setIsLoading(false);
     }
@@ -96,14 +94,14 @@ function PairwiseEvalsPage() {
             type="text"
             value={folder1Path}
             onChange={(e) => setFolder1Path(e.target.value)}
-            placeholder="Enter folder name in Downloads"
+            placeholder="输入 Downloads 中的文件夹名"
             className="w-full px-4 py-2 rounded text-black"
           />
           <input
             type="text"
             value={folder2Path}
             onChange={(e) => setFolder2Path(e.target.value)}
-            placeholder="Enter folder name in Downloads"
+            placeholder="输入 Downloads 中的文件夹名"
             className="w-full px-4 py-2 rounded text-black"
           />
           <button
@@ -111,14 +109,14 @@ function PairwiseEvalsPage() {
             disabled={isLoading}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:bg-blue-300"
           >
-            {isLoading ? "Loading..." : "Start Comparison"}
+            {isLoading ? "加载中..." : "开始比较"}
           </button>
         </div>
 
         {evals.length > 0 && (
           <>
             <span className="text-2xl font-semibold">
-              Total votes: {totalVotes}
+              总票数：{totalVotes}
             </span>
             <div className="text-lg mt-2">
               <span>
@@ -128,7 +126,7 @@ function PairwiseEvalsPage() {
                 {folderNames.right}: {rightWins} ({rightPercentage}%) |{" "}
               </span>
               <span>
-                Ties: {ties} ({tiePercentage}%)
+                平局：{ties} ({tiePercentage}%)
               </span>
             </div>
           </>
@@ -139,12 +137,12 @@ function PairwiseEvalsPage() {
         {evals.map((e, index) => (
           <div className="flex flex-col justify-center" key={index}>
             <h2 className="font-bold text-lg ml-4 mb-2">
-              Comparison {index + 1}
+              比较 {index + 1}
             </h2>
 
             <div className="w-full flex justify-center mb-4">
               <div className="w-1/2 p-1 border">
-                <img src={e.input} alt={`Input for comparison ${index}`} />
+                <img src={e.input} alt={`比较输入 ${index}`} />
               </div>
             </div>
 
@@ -170,7 +168,7 @@ function PairwiseEvalsPage() {
                           className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-sm"
                           onClick={() => setSelectedHtml(output)}
                         >
-                          Full Screen
+                          全屏查看
                         </button>
                       </DialogTrigger>
                       <DialogContent className="w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh]">
@@ -194,7 +192,7 @@ function PairwiseEvalsPage() {
                 }`}
                 onClick={() => handleVote(index, "left")}
               >
-                Left Wins
+                左侧胜出
               </button>
               <button
                 className={`px-4 py-2 rounded ${
@@ -204,7 +202,7 @@ function PairwiseEvalsPage() {
                 }`}
                 onClick={() => handleVote(index, "tie")}
               >
-                Tie
+                平局
               </button>
               <button
                 className={`px-4 py-2 rounded ${
@@ -214,7 +212,7 @@ function PairwiseEvalsPage() {
                 }`}
                 onClick={() => handleVote(index, "right")}
               >
-                Right Wins
+                右侧胜出
               </button>
             </div>
           </div>

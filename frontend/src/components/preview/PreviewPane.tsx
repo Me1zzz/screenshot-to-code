@@ -47,14 +47,14 @@ function PreviewPane({ doUpdate, reset, settings }: Props) {
                   className="flex items-center ml-4 gap-x-2 dark:text-white dark:bg-gray-700"
                 >
                   <FaUndo />
-                  Reset
+                  重置
                 </Button>
                 <Button
                   onClick={() => downloadCode(previewCode)}
                   variant="secondary"
                   className="flex items-center gap-x-2 mr-4 dark:text-white dark:bg-gray-700 download-btn"
                 >
-                  <FaDownload /> Download Code
+                  <FaDownload /> 下载代码
                 </Button>
               </>
             )}
@@ -62,14 +62,14 @@ function PreviewPane({ doUpdate, reset, settings }: Props) {
           <div className="flex items-center">
             <TabsList>
               <TabsTrigger value="desktop" className="flex gap-x-2">
-                <FaDesktop /> Desktop
+                <FaDesktop /> 桌面
               </TabsTrigger>
               <TabsTrigger value="mobile" className="flex gap-x-2">
-                <FaMobile /> Mobile
+                <FaMobile /> 移动端
               </TabsTrigger>
               <TabsTrigger value="code" className="flex gap-x-2">
                 <FaCode />
-                Code
+                代码
               </TabsTrigger>
             </TabsList>
           </div>

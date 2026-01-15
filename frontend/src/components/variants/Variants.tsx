@@ -146,21 +146,21 @@ function Variants() {
             statusIndicator = (
               <span
                 className="inline-block w-2 h-2 bg-green-500 rounded-full ml-2"
-                title="Complete"
+                title="完成"
               ></span>
             );
           } else if (variant.status === "cancelled") {
             statusIndicator = (
               <span
                 className="inline-block w-2 h-2 bg-red-500 rounded-full ml-2"
-                title="Cancelled"
+                title="已取消"
               ></span>
             );
           } else if (variant.status === "error") {
             statusIndicator = (
               <span
                 className="inline-block w-2 h-2 bg-red-600 rounded-full ml-2"
-                title="Error"
+                title="错误"
               ></span>
             );
           }
@@ -177,7 +177,7 @@ function Variants() {
             >
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-medium flex items-center text-sm">
-                  Option {index + 1}
+                  方案 {index + 1}
                   {variant.status === "generating" && (
                     <div className="scale-75 ml-1">
                       <Spinner />
@@ -196,10 +196,10 @@ function Variants() {
               {(variant.status === "cancelled" || variant.status === "error") && (
                 <div className="text-xs mt-1 flex items-center">
                   {variant.status === "cancelled" && (
-                    <span className="text-gray-500">Cancelled</span>
+                    <span className="text-gray-500">已取消</span>
                   )}
                   {variant.status === "error" && (
-                    <span className="text-red-500">Error</span>
+                    <span className="text-red-500">错误</span>
                   )}
                 </div>
               )}

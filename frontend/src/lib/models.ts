@@ -14,7 +14,7 @@ export const CODE_GENERATION_MODEL_DESCRIPTIONS: {
 } = {
   "gpt-4o-2024-05-13": { name: "GPT-4o", inBeta: false },
   "claude-sonnet-4-5-20250929": { name: "Claude Sonnet 4.5", inBeta: false },
-  "gpt-4-turbo-2024-04-09": { name: "GPT-4 Turbo (deprecated)", inBeta: false },
-  gpt_4_vision: { name: "GPT-4 Vision (deprecated)", inBeta: false },
-  claude_3_sonnet: { name: "Claude 3 (deprecated)", inBeta: false },
+  "gpt-4-turbo-2024-04-09": { name: "GPT-4 Turbo（已弃用）", inBeta: false },
+  gpt_4_vision: { name: "GPT-4 Vision（已弃用）", inBeta: false },
+  claude_3_sonnet: { name: "Claude 3（已弃用）", inBeta: false },
 };

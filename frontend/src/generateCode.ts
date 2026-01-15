@@ -7,9 +7,9 @@ import {
 import { FullGenerationSettings } from "./types";
 
 const ERROR_MESSAGE =
-  "Error generating code. Check the Developer Console AND the backend logs for details. Feel free to open a Github issue.";
+  "代码生成失败。请查看开发者控制台和后端日志了解详情。欢迎在 Github 提交 issue。";
 
-const CANCEL_MESSAGE = "Code generation cancelled";
+const CANCEL_MESSAGE = "已取消代码生成";
 
 type WebSocketResponse = {
   type:

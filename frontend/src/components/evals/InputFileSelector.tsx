@@ -27,7 +27,7 @@ function InputFileSelector({ onFilesSelected }: InputFileSelectorProps) {
     try {
       const response = await fetch(`${HTTP_BACKEND_URL}/eval_input_files`);
       if (!response.ok) {
-        throw new Error("Failed to fetch input files");
+        throw new Error("获取输入文件失败");
       }
       
       const data = await response.json();
@@ -71,7 +71,7 @@ function InputFileSelector({ onFilesSelected }: InputFileSelectorProps) {
   };
 
   if (isLoading) {
-    return <div className="text-center text-sm text-gray-500">Loading input files...</div>;
+    return <div className="text-center text-sm text-gray-500">正在加载输入文件...</div>;
   }
 
   const fileCount = inputFiles.length;
@@ -86,9 +86,9 @@ function InputFileSelector({ onFilesSelected }: InputFileSelectorProps) {
         <div className="flex items-center gap-2">
           {isExpanded ? <BsChevronDown className="text-gray-500" /> : <BsChevronRight className="text-gray-500" />}
           <div>
-            <span className="text-sm font-medium">Input Files</span>
+            <span className="text-sm font-medium">输入文件</span>
             <span className="ml-2 text-xs text-gray-500">
-              {selectedCount} of {fileCount} selected
+              已选 {selectedCount} / {fileCount}
             </span>
           </div>
         </div>
@@ -101,7 +101,7 @@ function InputFileSelector({ onFilesSelected }: InputFileSelectorProps) {
             className="text-xs h-6 px-2 text-gray-500 hover:text-gray-700"
             disabled={selectedCount === fileCount}
           >
-            All
+            全选
           </Button>
           <Button
             variant="ghost"
@@ -110,7 +110,7 @@ function InputFileSelector({ onFilesSelected }: InputFileSelectorProps) {
             className="text-xs h-6 px-2 text-gray-500 hover:text-gray-700"
             disabled={selectedCount === 0}
           >
-            None
+            全不选
           </Button>
         </div>
       </div>

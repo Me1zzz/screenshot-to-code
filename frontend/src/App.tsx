@@ -158,16 +158,14 @@ function App() {
 
   const regenerate = () => {
     if (head === null) {
-      toast.error(
-        "No current version set. Please contact support via chat or Github."
-      );
+      toast.error("没有当前版本。请通过聊天或 Github 联系支持。");
       throw new Error("Regenerate called with no head");
     }
 
     // Retrieve the previous command
     const currentCommit = commits[head];
     if (currentCommit.type !== "ai_create") {
-      toast.error("Only the first version can be regenerated.");
+      toast.error("只能重新生成第一个版本。");
       return;
     }
 
@@ -318,14 +316,12 @@ function App() {
     selectedElement?: HTMLElement
   ) {
     if (updateInstruction.trim() === "") {
-      toast.error("Please include some instructions for AI on what to update.");
+      toast.error("请提供给 AI 的更新说明。");
       return;
     }
 
     if (head === null) {
-      toast.error(
-        "No current version set. Contact support or open a Github issue."
-      );
+      toast.error("没有当前版本。请联系支持或在 Github 提交 issue。");
       throw new Error("Update called with no head");
     }
 
@@ -333,9 +329,7 @@ function App() {
     try {
       historyTree = extractHistory(head, commits);
     } catch {
-      toast.error(
-        "Version history is invalid. This shouldn't happen. Please contact support or open a Github issue."
-      );
+      toast.error("版本历史无效。这不该发生。请联系支持或在 Github 提交 issue。");
       throw new Error("Invalid version history");
     }
 
@@ -420,7 +414,7 @@ function App() {
         <div className="flex grow flex-col gap-y-2 overflow-y-auto border-r border-gray-200 bg-white px-6 dark:bg-zinc-950 dark:text-white">
           {/* Header with access to settings */}
           <div className="flex items-center justify-between mt-10 mb-2">
-            <h1 className="text-2xl ">Screenshot to Code</h1>
+            <h1 className="text-2xl ">截图生成代码</h1>
             <SettingsDialog settings={settings} setSettings={setSettings} />
           </div>
 

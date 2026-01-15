@@ -156,7 +156,7 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
             }
           })
           .catch((error) => {
-            toast.error("Error reading files" + error);
+            toast.error("读取文件时出错：" + error);
             console.error("Error reading files:", error);
           });
       },
@@ -194,8 +194,8 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
         <div {...getRootProps({ style: style as any })}>
           <input {...getInputProps()} className="file-input" />
           <p className="text-slate-700 text-lg">
-            Drag & drop a screenshot here, <br />
-            or click to upload
+            拖拽截图到这里，<br />
+            或点击上传
           </p>
         </div>
       )}
@@ -213,14 +213,14 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
             ) : (
               <img
                 src={files[0]?.preview}
-                alt="Uploaded screenshot"
+                alt="已上传的截图"
                 className="w-full h-auto max-h-[500px] object-contain rounded-lg"
               />
             )}
             <button
               onClick={handleClear}
               className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
-              aria-label="Remove image"
+              aria-label="移除图片"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -246,7 +246,7 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
               }}
               className="text-sm text-gray-500 hover:text-gray-700 underline"
             >
-              (optional) add text prompt
+              （可选）添加文字提示
             </button>
           ) : (
             <div className="w-full max-w-lg">
@@ -255,7 +255,7 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
                 value={textPrompt}
                 onChange={(e) => setTextPrompt(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Describe any specific requirements or changes..."
+                placeholder="描述具体需求或改动..."
                 className="w-full p-3 text-sm border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                 rows={3}
               />
@@ -268,10 +268,10 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
               onClick={handleGenerate}
               className="w-full py-3 px-6 bg-black text-white font-medium rounded-md hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
             >
-              Generate
+              生成
             </button>
             <p className="text-xs text-gray-400">
-              Press Enter to generate
+              按 Enter 生成
             </p>
           </div>
         </div>
@@ -279,14 +279,13 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
 
       {screenRecorderState === ScreenRecorderState.INITIAL && !hasUploadedFile && (
         <div className="text-center text-sm text-slate-800 mt-4">
-          Upload a screen recording (.mp4, .mov) or record your screen to clone
-          a whole app (experimental).{" "}
+          上传屏幕录制（.mp4、.mov），或录制屏幕来克隆整个应用（实验功能）。{" "}
           <a
             className="underline"
             href={URLS["intro-to-video"]}
             target="_blank"
           >
-            Learn more.
+            了解更多。
           </a>
         </div>
       )}

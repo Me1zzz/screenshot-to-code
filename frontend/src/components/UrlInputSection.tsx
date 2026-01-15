@@ -20,14 +20,14 @@ export function UrlInputSection({ doCreate, screenshotOneApiKey }: Props) {
   async function takeScreenshot() {
     if (!screenshotOneApiKey) {
       toast.error(
-        "Please add a ScreenshotOne API key in the Settings dialog. This is optional - you can also drag/drop and upload images directly.",
+        "请在设置对话框中添加 ScreenshotOne API key。这是可选项——你也可以直接拖拽并上传图片。",
         { duration: 8000 }
       );
       return;
     }
 
     if (!referenceUrl) {
-      toast.error("Please enter a URL");
+      toast.error("请输入 URL");
       return;
     }
 
@@ -46,16 +46,14 @@ export function UrlInputSection({ doCreate, screenshotOneApiKey }: Props) {
         });
 
         if (!response.ok) {
-          throw new Error("Failed to capture screenshot");
+          throw new Error("截图获取失败");
         }
 
         const res = await response.json();
         doCreate([res.url], "image");
       } catch (error) {
         console.error(error);
-        toast.error(
-          "Failed to capture screenshot. Look at the console and your backend logs for more details."
-        );
+        toast.error("截图获取失败。请查看控制台和后端日志了解详情。");
       } finally {
         setIsLoading(false);
       }
@@ -64,9 +62,9 @@ export function UrlInputSection({ doCreate, screenshotOneApiKey }: Props) {
 
   return (
     <div className="max-w-[90%] min-w-[40%] gap-y-2 flex flex-col">
-      <div className="text-gray-500 text-sm">Or screenshot a URL...</div>
+      <div className="text-gray-500 text-sm">或通过 URL 截图...</div>
       <Input
-        placeholder="Enter URL"
+        placeholder="输入 URL"
         onChange={(e) => setReferenceUrl(e.target.value)}
         value={referenceUrl}
         onKeyDown={(e) => {
@@ -80,7 +78,7 @@ export function UrlInputSection({ doCreate, screenshotOneApiKey }: Props) {
         disabled={isLoading}
         className="bg-slate-400 capture-btn"
       >
-        {isLoading ? "Capturing..." : "Capture"}
+        {isLoading ? "正在截图..." : "截图"}
       </Button>
     </div>
   );

@@ -6,13 +6,13 @@ function AllEvalsPage() {
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold text-gray-900">
-            Evals Dashboard
+            评测仪表盘
           </h1>
           <Link 
             to="/"
             className="text-sm text-gray-500 hover:text-gray-700 flex items-center"
           >
-            ← Back to app
+            ← 返回应用
           </Link>
         </div>
         <div className="space-y-4">
@@ -20,9 +20,9 @@ function AllEvalsPage() {
             to="/evals/run"
             className="block w-full p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200"
           >
-            <h2 className="text-xl font-semibold text-gray-800">Run Evals</h2>
+            <h2 className="text-xl font-semibold text-gray-800">运行评测</h2>
             <p className="text-gray-600">
-              Generate evaluations for multiple models
+              生成多个模型的评测结果
             </p>
           </Link>
 
@@ -31,10 +31,10 @@ function AllEvalsPage() {
             className="block w-full p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200"
           >
             <h2 className="text-xl font-semibold text-gray-800">
-              Pairwise Comparison
+              成对比较
             </h2>
             <p className="text-gray-600">
-              Compare outputs from two different models
+              比较两个不同模型的输出
             </p>
           </Link>
 
@@ -42,9 +42,9 @@ function AllEvalsPage() {
             to="/evals/best-of-n"
             className="block w-full p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200"
           >
-            <h2 className="text-xl font-semibold text-gray-800">Best of N</h2>
+            <h2 className="text-xl font-semibold text-gray-800">N 选最佳</h2>
             <p className="text-gray-600">
-              Compare multiple model outputs side by side
+              并排比较多个模型输出
             </p>
           </Link>
 
@@ -53,9 +53,9 @@ function AllEvalsPage() {
             className="block w-full p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200"
           >
             <h2 className="text-xl font-semibold text-gray-800">
-              Single Model Eval
+              单模型评测
             </h2>
-            <p className="text-gray-600">Score outputs from a single model</p>
+            <p className="text-gray-600">对单个模型输出进行评分</p>
           </Link>
         </div>
       </div>

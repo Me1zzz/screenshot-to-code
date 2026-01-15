@@ -8,7 +8,7 @@ function EvalNavigation() {
           to="/evals"
           className="font-medium hover:text-blue-300 transition-colors"
         >
-          Evals Home
+          评测首页
         </Link>
         
         <div className="text-gray-500">|</div>
@@ -17,28 +17,28 @@ function EvalNavigation() {
           to="/evals/run"
           className="hover:text-blue-300 transition-colors"
         >
-          Run
+          运行
         </Link>
         
         <Link
           to="/evals/pairwise"
           className="hover:text-blue-300 transition-colors"
         >
-          Pairwise
+          成对比较
         </Link>
         
         <Link
           to="/evals/best-of-n"
           className="hover:text-blue-300 transition-colors"
         >
-          Best of N
+          N 选最佳
         </Link>
         
         <Link
           to="/evals/single"
           className="hover:text-blue-300 transition-colors"
         >
-          Single
+          单模型
         </Link>
       </div>
       
@@ -46,7 +46,7 @@ function EvalNavigation() {
         to="/"
         className="text-sm text-gray-300 hover:text-white transition-colors"
       >
-        ← Back to app
+        ← 返回应用
       </Link>
     </div>
   );
