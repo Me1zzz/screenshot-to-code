@@ -35,6 +35,82 @@ interface CodeGenerationCallbacks {
   onComplete: () => void;
 }
 
+type HtmlStreamState = {
+  buffer: string;
+  isCapturing: boolean;
+};
+
+const START_FENCE_REGEX = /```html\+?/;
+const START_FENCE_MAX_LENGTH = "```html+".length;
+const END_FENCE = "```";
+const END_FENCE_PREFIX_LENGTH = END_FENCE.length - 1;
+
+function getHtmlStreamState(
+  states: Map<number, HtmlStreamState>,
+  variantIndex: number
+) {
+  const existing = states.get(variantIndex);
+  if (existing) {
+    return existing;
+  }
+  const initial = { buffer: "", isCapturing: false };
+  states.set(variantIndex, initial);
+  return initial;
+}
+
+function resetHtmlStreamState(
+  states: Map<number, HtmlStreamState>,
+  variantIndex: number
+) {
+  states.set(variantIndex, { buffer: "", isCapturing: false });
+}
+
+function extractHtmlFromChunk(
+  states: Map<number, HtmlStreamState>,
+  variantIndex: number,
+  chunk: string
+) {
+  const state = getHtmlStreamState(states, variantIndex);
+  state.buffer += chunk;
+  let extracted = "";
+
+  while (state.buffer.length > 0) {
+    if (!state.isCapturing) {
+      const startIndex = state.buffer.search(START_FENCE_REGEX);
+      if (startIndex === -1) {
+        state.buffer = state.buffer.slice(-START_FENCE_MAX_LENGTH);
+        break;
+      }
+
+      const match = state.buffer.slice(startIndex).match(START_FENCE_REGEX);
+      if (!match) {
+        state.buffer = state.buffer.slice(-START_FENCE_MAX_LENGTH);
+        break;
+      }
+
+      state.buffer = state.buffer.slice(startIndex + match[0].length);
+      state.isCapturing = true;
+      continue;
+    }
+
+    const endIndex = state.buffer.indexOf(END_FENCE);
+    if (endIndex === -1) {
+      if (state.buffer.length > END_FENCE_PREFIX_LENGTH) {
+        extracted += state.buffer.slice(0, -END_FENCE_PREFIX_LENGTH);
+        state.buffer = state.buffer.slice(-END_FENCE_PREFIX_LENGTH);
+      }
+      break;
+    }
+
+    extracted += state.buffer.slice(0, endIndex);
+    state.buffer = "";
+    state.isCapturing = false;
+    break;
+  }
+
+  return extracted;
+}
+
 export function generateCode(
   wsRef: React.MutableRefObject<WebSocket | null>,
   params: FullGenerationSettings,
@@ -43,6 +119,7 @@ export function generateCode(
   const wsUrl = `${WS_BACKEND_URL}/generate-code`;
   console.log("Connecting to backend @ ", wsUrl);
 
+  const htmlStreamStates = new Map<number, HtmlStreamState>();
   const ws = new WebSocket(wsUrl);
   wsRef.current = ws;
 
@@ -53,10 +130,18 @@ export function generateCode(
   ws.addEventListener("message", async (event: MessageEvent) => {
     const response = JSON.parse(event.data) as WebSocketResponse;
     if (response.type === "chunk") {
-      callbacks.onChange(response.value, response.variantIndex);
+      const extracted = extractHtmlFromChunk(
+        htmlStreamStates,
+        response.variantIndex,
+        response.value
+      );
+      if (extracted) {
+        callbacks.onChange(extracted, response.variantIndex);
+      }
     } else if (response.type === "status") {
       callbacks.onStatusUpdate(response.value, response.variantIndex);
     } else if (response.type === "setCode") {
+      resetHtmlStreamState(htmlStreamStates, response.variantIndex);
       callbacks.onSetCode(response.value, response.variantIndex);
     } else if (response.type === "variantComplete") {
       callbacks.onVariantComplete(response.variantIndex);
