@@ -3,8 +3,6 @@ from typing import Any, Literal
 from openai.types.chat import ChatCompletionContentPartParam, ChatCompletionMessageParam
 
 from custom_types import InputMode
-from prompts.screenshot_system_prompts import SYSTEM_PROMPTS
-from prompts.text_prompts import SYSTEM_PROMPTS as TEXT_SYSTEM_PROMPTS
 from prompts.types import PromptContent, Stack
 
 
@@ -46,12 +44,6 @@ def assemble_engineering_refinement_prompt(
     history: list[dict[str, Any]],
     engineered_html: str,
 ) -> list[ChatCompletionMessageParam]:
-    system_content = (
-        SYSTEM_PROMPTS[stack]
-        if input_mode != "text"
-        else TEXT_SYSTEM_PROMPTS[stack]
-    )
-
     instruction = _resolve_instruction_text(generation_type, prompt, history)
     instruction_block = (
         f"\n\nAdditional instructions: {instruction}" if instruction else ""
@@ -86,10 +78,4 @@ def assemble_engineering_refinement_prompt(
             "content": user_text,
         }
 
-    return [
-        {
-            "role": "system",
-            "content": system_content,
-        },
-        user_content,
-    ]
+    return [user_content]
