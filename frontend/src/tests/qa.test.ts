@@ -167,6 +167,7 @@ class App {
       screenshotOneApiKey: process.env.TEST_SCREENSHOTONE_API_KEY,
       isImageGenerationEnabled: true,
       isEngineeringVariantEnabled: true,
+      isDeepThinkingEnabled: true,
       engineeringOpenAiApiKey: null,
       engineeringOpenAiBaseURL: null,
       engineeringOpenAiModel: "gpt-4o-mini",

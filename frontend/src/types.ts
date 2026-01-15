@@ -12,6 +12,7 @@ export interface Settings {
   screenshotOneApiKey: string | null;
   isImageGenerationEnabled: boolean;
   isEngineeringVariantEnabled: boolean;
+  isDeepThinkingEnabled: boolean;
   engineeringOpenAiApiKey: string | null;
   engineeringOpenAiBaseURL: string | null;
   engineeringOpenAiModel: string;

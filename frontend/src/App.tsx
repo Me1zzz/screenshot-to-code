@@ -71,6 +71,7 @@ function App() {
       screenshotOneApiKey: null,
       isImageGenerationEnabled: true,
       isEngineeringVariantEnabled: true,
+      isDeepThinkingEnabled: true,
       engineeringOpenAiApiKey: null,
       engineeringOpenAiBaseURL: null,
       engineeringOpenAiModel: "gpt-4o-mini",
@@ -119,6 +120,15 @@ function App() {
     settings.isEngineeringVariantEnabled,
     setSettings,
   ]);
+
+  useEffect(() => {
+    if (typeof settings.isDeepThinkingEnabled !== "boolean") {
+      setSettings((prev) => ({
+        ...prev,
+        isDeepThinkingEnabled: true,
+      }));
+    }
+  }, [settings.isDeepThinkingEnabled, setSettings]);
 
   useEffect(() => {
     if (!settings.engineeringOpenAiModel) {

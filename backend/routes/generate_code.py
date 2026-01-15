@@ -214,6 +214,7 @@ class ExtractedParams:
     input_mode: InputMode
     should_generate_images: bool
     is_engineering_variant_enabled: bool
+    is_deep_thinking_enabled: bool
     engineering_openai_api_key: str | None
     engineering_openai_base_url: str | None
     engineering_openai_model: str
@@ -267,6 +268,16 @@ class ParameterExtractionStage:
                 in ["true", "1", "yes"]
             )
 
+        deep_thinking_param = params.get("isDeepThinkingEnabled")
+        if deep_thinking_param is None:
+            is_deep_thinking_enabled = True
+        elif isinstance(deep_thinking_param, bool):
+            is_deep_thinking_enabled = deep_thinking_param
+        else:
+            is_deep_thinking_enabled = (
+                str(deep_thinking_param).lower() in ["true", "1", "yes"]
+            )
+
         openai_api_key = self._get_from_settings_dialog_or_env(
             params, "openAiApiKey", OPENAI_API_KEY
         )
@@ -318,6 +329,7 @@ class ParameterExtractionStage:
             input_mode=validated_input_mode,
             should_generate_images=should_generate_images,
             is_engineering_variant_enabled=include_engineering_variant,
+            is_deep_thinking_enabled=is_deep_thinking_enabled,
             engineering_openai_api_key=engineering_openai_api_key,
             engineering_openai_base_url=engineering_openai_base_url,
             engineering_openai_model=engineering_openai_model,
@@ -778,6 +790,10 @@ class ParallelGenerationStage:
             openai_base_url=extracted_params.engineering_openai_base_url,
             openai_model=extracted_params.engineering_openai_model,
         )
+
+        if not extracted_params.is_deep_thinking_enabled:
+            duration = time.perf_counter() - start_time
+            return {"duration": duration, "code": html_output}
 
         if not extracted_params.engineering_openai_api_key:
             duration = time.perf_counter() - start_time
