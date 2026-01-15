@@ -13,9 +13,15 @@ interface Props {
   ) => void;
   importFromCode: (code: string, stack: Stack) => void;
   settings: Settings;
+  setSettings: React.Dispatch<React.SetStateAction<Settings>>;
 }
 
-const StartPane: React.FC<Props> = ({ doCreate, importFromCode, settings }) => {
+const StartPane: React.FC<Props> = ({
+  doCreate,
+  importFromCode,
+  settings,
+  setSettings,
+}) => {
   const [hasImageUpload, setHasImageUpload] = useState(false);
 
   return (
@@ -23,6 +29,8 @@ const StartPane: React.FC<Props> = ({ doCreate, importFromCode, settings }) => {
       <ImageUpload
         setReferenceImages={doCreate}
         onUploadStateChange={setHasImageUpload}
+        settings={settings}
+        setSettings={setSettings}
       />
       {!hasImageUpload && (
         <>

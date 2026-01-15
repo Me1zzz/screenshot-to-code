@@ -449,6 +449,7 @@ function App() {
             doCreate={doCreate}
             importFromCode={importFromCode}
             settings={settings}
+            setSettings={setSettings}
           />
         )}
 
