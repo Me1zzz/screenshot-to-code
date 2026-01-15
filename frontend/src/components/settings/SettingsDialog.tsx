@@ -82,24 +82,6 @@ function SettingsDialog({ settings, setSettings }: Props) {
             }
           />
         </div>
-        <div className="flex items-center space-x-2">
-          <Label htmlFor="deep-thinking">
-            <div>工程版深度思考</div>
-            <div className="font-light mt-2 text-xs">
-              对工程变体运行 VLM 精炼步骤。
-            </div>
-          </Label>
-          <Switch
-            id="deep-thinking"
-            checked={settings.isDeepThinkingEnabled}
-            onCheckedChange={() =>
-              setSettings((s) => ({
-                ...s,
-                isDeepThinkingEnabled: !s.isDeepThinkingEnabled,
-              }))
-            }
-          />
-        </div>
         <div className="flex flex-col space-y-6">
           <div>
             <Label htmlFor="openai-api-key">

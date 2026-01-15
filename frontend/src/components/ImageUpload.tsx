@@ -3,7 +3,9 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "react-hot-toast";
 import { URLS } from "../urls";
 import ScreenRecorder from "./recording/ScreenRecorder";
-import { ScreenRecorderState } from "../types";
+import { ScreenRecorderState, Settings } from "../types";
+import { Switch } from "./ui/switch";
+import { Label } from "./ui/label";
 
 const baseStyle = {
   flex: 1,
@@ -58,9 +60,16 @@ interface Props {
     textPrompt?: string
   ) => void;
   onUploadStateChange?: (hasUpload: boolean) => void;
+  settings: Settings;
+  setSettings: React.Dispatch<React.SetStateAction<Settings>>;
 }
 
-function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
+function ImageUpload({
+  setReferenceImages,
+  onUploadStateChange,
+  settings,
+  setSettings,
+}: Props) {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [uploadedDataUrls, setUploadedDataUrls] = useState<string[]>([]);
   const [uploadedInputMode, setUploadedInputMode] = useState<
@@ -261,6 +270,25 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
               />
             </div>
           )}
+
+          <div className="flex items-center justify-between w-full max-w-lg gap-4 rounded-md border border-gray-200 px-4 py-3">
+            <Label htmlFor="deep-thinking-upload" className="space-y-1">
+              <div>工程版深度思考</div>
+              <div className="font-light text-xs">
+                对工程变体运行 VLM 精炼步骤。
+              </div>
+            </Label>
+            <Switch
+              id="deep-thinking-upload"
+              checked={settings.isDeepThinkingEnabled}
+              onCheckedChange={() =>
+                setSettings((s) => ({
+                  ...s,
+                  isDeepThinkingEnabled: !s.isDeepThinkingEnabled,
+                }))
+              }
+            />
+          </div>
 
           {/* Generate Button */}
           <div className="flex flex-col items-center gap-1 w-full max-w-md">
