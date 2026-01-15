@@ -116,8 +116,7 @@ function Sidebar({
               className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700
             p-2 text-xs mb-4 mt-1"
             >
-              Code generation from videos can take 3-4 minutes. We do multiple
-              passes to get the best result. Please be patient.
+              从视频生成代码可能需要 3-4 分钟。我们会多次处理以获得最佳结果，请耐心等待。
             </div>
           )}
 
@@ -128,7 +127,7 @@ function Sidebar({
               onClick={cancelCodeGeneration}
               className="w-full dark:text-white dark:bg-gray-700"
             >
-              Cancel All Generations
+              取消所有生成
             </Button>
           </div>
         </div>
@@ -139,7 +138,7 @@ function Sidebar({
         <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-2">
           <div className="text-red-800 text-sm">
             <div className="font-medium mb-1">
-              This option failed to generate because
+              该方案生成失败，原因：
             </div>
             {selectedVariantErrorMessage && (
               <div className="mb-2">
@@ -153,12 +152,12 @@ function Sidebar({
                     onClick={() => setIsErrorExpanded(!isErrorExpanded)}
                     className="text-red-600 text-xs underline mt-1 hover:text-red-800"
                   >
-                    {isErrorExpanded ? "Show less" : "Show more"}
+                    {isErrorExpanded ? "收起" : "展开"}
                   </button>
                 )}
               </div>
             )}
-            <div>Switch to another option above to make updates.</div>
+            <div>请切换到上方其他方案进行更新。</div>
           </div>
         </div>
       )}
@@ -184,7 +183,7 @@ function Sidebar({
               />
               <Textarea
                 ref={textareaRef}
-                placeholder="Tell the AI what to change..."
+                placeholder="告诉 AI 要改什么..."
                 onChange={(e) => setUpdateInstruction(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -198,7 +197,7 @@ function Sidebar({
                   onClick={() => doUpdate(updateInstruction)}
                   className="dark:text-white dark:bg-gray-700 update-btn flex-1"
                 >
-                  Update <KeyboardShortcutBadge letter="enter" />
+                  更新 <KeyboardShortcutBadge letter="enter" />
                 </Button>
                 <UpdateImageUpload 
                   updateImages={updateImages} 
@@ -209,7 +208,7 @@ function Sidebar({
               {/* Drag overlay that covers the entire update area */}
               {isDragging && (
                 <div className="absolute inset-0 bg-blue-50/90 dark:bg-gray-800/90 border-2 border-dashed border-blue-400 dark:border-blue-600 rounded-md flex items-center justify-center pointer-events-none z-10">
-                  <p className="text-blue-600 dark:text-blue-400 font-medium">Drop images here</p>
+                  <p className="text-blue-600 dark:text-blue-400 font-medium">将图片拖放到这里</p>
                 </div>
               )}
             </div>
@@ -218,7 +217,7 @@ function Sidebar({
                 onClick={regenerate}
                 className="flex items-center gap-x-2 dark:text-white dark:bg-gray-700 regenerate-btn"
               >
-                🔄 Regenerate
+                🔄 重新生成
               </Button>
               {showSelectAndEditFeature && <SelectAndEditModeToggleButton />}
             </div>
@@ -241,7 +240,7 @@ function Sidebar({
                 <img
                   className="w-[340px] border border-gray-200 rounded-md"
                   src={referenceImages[0]}
-                  alt="Reference"
+                  alt="参考"
                 />
               )}
               {inputMode === "video" && (
@@ -255,7 +254,7 @@ function Sidebar({
               )}
             </div>
             <div className="text-gray-400 uppercase text-sm text-center mt-1">
-              {inputMode === "video" ? "Original Video" : "Original Screenshot"}
+              {inputMode === "video" ? "原始视频" : "原始截图"}
             </div>
           </div>
         )}

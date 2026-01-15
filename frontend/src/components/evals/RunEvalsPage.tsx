@@ -31,14 +31,14 @@ function RunEvalsPage() {
 
   useEffect(() => {
     return () => {
-      document.title = "Screenshot to Code";
+      document.title = "截图生成代码";
     };
   }, []);
 
   const runEvals = async () => {
     try {
       setIsRunning(true);
-      document.title = "Running Evals...";
+      document.title = "正在运行评测...";
 
       const response = await fetch(`${HTTP_BACKEND_URL}/run_evals`, {
         method: "POST",
@@ -53,18 +53,18 @@ function RunEvalsPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to run evals");
+        throw new Error("运行评测失败");
       }
 
       const outputFiles = await response.json();
       console.log("Generated files:", outputFiles);
 
-      document.title = "✓ Evals Complete";
+      document.title = "✓ 评测完成";
     } catch (error) {
       console.error("Error running evals:", error);
-      document.title = "❌ Eval Error";
+      document.title = "❌ 评测错误";
       setTimeout(() => {
-        document.title = "Screenshot to Code";
+        document.title = "截图生成代码";
       }, 5000);
     } finally {
       setIsRunning(false);
@@ -90,10 +90,10 @@ function RunEvalsPage() {
 
   // Format model list for display in the summary
   const formatModelList = () => {
-    if (selectedModels.length === 0) return "None";
+    if (selectedModels.length === 0) return "无";
     if (selectedModels.length === 1) return selectedModels[0];
     if (selectedModels.length <= 2) return selectedModels.join(", ");
-    return `${selectedModels.slice(0, 2).join(", ")} +${selectedModels.length - 2} more`;
+    return `${selectedModels.slice(0, 2).join(", ")} +${selectedModels.length - 2} 个`;
   };
 
   const canRunEvals = selectedModels.length > 0 && selectedFiles.length > 0;
@@ -107,31 +107,31 @@ function RunEvalsPage() {
         <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-4 max-w-5xl mx-auto">
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap justify-between items-center">
-              <h1 className="text-2xl font-bold">Run Evaluations</h1>
+              <h1 className="text-2xl font-bold">运行评测</h1>
               
               <Button
                 onClick={runEvals}
                 disabled={isRunning || !canRunEvals}
                 className={`min-w-[120px] ${isRunning ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"}`}
               >
-                {isRunning ? "Running..." : "Run Evals"}
+                {isRunning ? "运行中..." : "运行评测"}
               </Button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-gray-100 pt-3">
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-gray-700">Models</span>
+                <span className="text-sm font-medium text-gray-700">模型</span>
                 <span className="text-sm text-gray-600 font-mono">{formatModelList()}</span>
               </div>
               
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-gray-700">Stack</span>
+                <span className="text-sm font-medium text-gray-700">技术栈</span>
                 <span className="text-sm text-gray-600 font-mono">{selectedStack}</span>
               </div>
               
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-gray-700">Input Files</span>
-                <span className="text-sm text-gray-600">{selectedFiles.length} selected</span>
+                <span className="text-sm font-medium text-gray-700">输入文件</span>
+                <span className="text-sm text-gray-600">已选 {selectedFiles.length} 个</span>
               </div>
             </div>
             
@@ -140,19 +140,19 @@ function RunEvalsPage() {
               onClick={() => setShowPaths(!showPaths)}
             >
               {showPaths ? <BsChevronDown size={12} /> : <BsChevronRight size={12} />}
-              <span className="font-medium">Paths</span>
+              <span className="font-medium">路径</span>
             </div>
             
             {showPaths && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded-md">
                 <div>
-                  <span className="font-medium">Input path:</span>
+                  <span className="font-medium">输入路径：</span>
                   <code className="ml-2 bg-gray-100 px-2 py-0.5 rounded">
                     backend/evals_data/inputs
                   </code>
                 </div>
                 <div>
-                  <span className="font-medium">Output path:</span>
+                  <span className="font-medium">输出路径：</span>
                   <code className="ml-2 bg-gray-100 px-2 py-0.5 rounded">
                     backend/evals_data/outputs
                   </code>
@@ -167,7 +167,7 @@ function RunEvalsPage() {
           {/* Model Selection Section */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="border-b border-gray-200 px-4 py-3 bg-gray-50 rounded-t-lg">
-              <h2 className="font-medium">Select Models</h2>
+              <h2 className="font-medium">选择模型</h2>
             </div>
             <div className="p-3">
               <div className="border rounded-md max-h-[300px] overflow-y-auto">
@@ -194,7 +194,7 @@ function RunEvalsPage() {
               </div>
               <div className="flex justify-between mt-2 text-xs">
                 <p className="text-gray-500">
-                  Selected: {selectedModels.length} / {models.length}
+                  已选：{selectedModels.length} / {models.length}
                 </p>
                 <div className="space-x-2">
                   {selectedModels.length < models.length && (
@@ -204,7 +204,7 @@ function RunEvalsPage() {
                       onClick={handleSelectAll}
                       className="text-xs h-6 px-2 text-gray-500 hover:text-gray-700"
                     >
-                      Select all
+                      全选
                     </Button>
                   )}
                   {selectedModels.length > 0 && (
@@ -214,7 +214,7 @@ function RunEvalsPage() {
                       onClick={() => setSelectedModels([])}
                       className="text-xs h-6 px-2 text-gray-500 hover:text-gray-700"
                     >
-                      Clear
+                      清空
                     </Button>
                   )}
                 </div>
@@ -225,7 +225,7 @@ function RunEvalsPage() {
           {/* Stack Selection Section */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="border-b border-gray-200 px-4 py-3 bg-gray-50 rounded-t-lg">
-              <h2 className="font-medium">Select Stack</h2>
+              <h2 className="font-medium">选择技术栈</h2>
             </div>
             <div className="p-3">
               <select
@@ -245,7 +245,7 @@ function RunEvalsPage() {
           {/* Input Files Section */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm lg:col-span-1 md:col-span-2">
             <div className="border-b border-gray-200 px-4 py-3 bg-gray-50 rounded-t-lg">
-              <h2 className="font-medium">Select Input Files</h2>
+              <h2 className="font-medium">选择输入文件</h2>
             </div>
             <div className="p-3">
               <InputFileSelector onFilesSelected={handleFilesSelected} />

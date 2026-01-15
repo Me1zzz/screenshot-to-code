@@ -33,7 +33,7 @@ export function UpdateImagePreview({ updateImages, setUpdateImages }: Props) {
           <div key={index} className="relative flex-shrink-0 group">
             <img
               src={image}
-              alt={`Reference ${index + 1}`}
+              alt={`参考图 ${index + 1}`}
               className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-600"
             />
             <button
@@ -65,7 +65,7 @@ function UpdateImageUpload({ updateImages, setUpdateImages }: Props) {
         const newImages = await Promise.all(newImagePromises);
         setUpdateImages([...updateImages, ...newImages]);
       } catch (error) {
-        toast.error("Error reading image files");
+        toast.error("读取图片文件时出错");
         console.error("Error reading files:", error);
       }
     }
@@ -89,7 +89,7 @@ function UpdateImageUpload({ updateImages, setUpdateImages }: Props) {
         size="default"
         onClick={handleButtonClick}
         className={`dark:text-white dark:bg-gray-700 h-10 px-3 ${updateImages.length > 0 ? 'border-blue-500' : ''} relative`}
-        title={updateImages.length > 0 ? "Add more images" : "Add reference images"}
+        title={updateImages.length > 0 ? "添加更多图片" : "添加参考图片"}
       >
         <ImageIcon className="h-4 w-4" />
         {updateImages.length > 0 && (

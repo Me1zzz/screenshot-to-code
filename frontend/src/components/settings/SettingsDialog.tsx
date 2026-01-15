@@ -43,14 +43,14 @@ function SettingsDialog({ settings, setSettings }: Props) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="mb-4">Settings</DialogTitle>
+          <DialogTitle className="mb-4">设置</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center space-x-2">
           <Label htmlFor="image-generation">
-            <div>DALL-E Placeholder Image Generation</div>
+            <div>DALL·E 占位图生成</div>
             <div className="font-light mt-2 text-xs">
-              More fun with it but if you want to save money, turn it off.
+              更有趣，但如果想省钱可以关闭。
             </div>
           </Label>
           <Switch
@@ -66,9 +66,9 @@ function SettingsDialog({ settings, setSettings }: Props) {
         </div>
         <div className="flex items-center space-x-2">
           <Label htmlFor="engineering-variant">
-            <div>Engineering Variant</div>
+            <div>工程版变体</div>
             <div className="font-light mt-2 text-xs">
-              Include the engineering-focused variant in results.
+              在结果中包含工程向变体。
             </div>
           </Label>
           <Switch
@@ -84,9 +84,9 @@ function SettingsDialog({ settings, setSettings }: Props) {
         </div>
         <div className="flex items-center space-x-2">
           <Label htmlFor="deep-thinking">
-            <div>Engineering Deep Thinking</div>
+            <div>工程版深度思考</div>
             <div className="font-light mt-2 text-xs">
-              Run the VLM refinement pass for the engineering variant.
+              对工程变体运行 VLM 精炼步骤。
             </div>
           </Label>
           <Switch
@@ -103,16 +103,15 @@ function SettingsDialog({ settings, setSettings }: Props) {
         <div className="flex flex-col space-y-6">
           <div>
             <Label htmlFor="openai-api-key">
-              <div>OpenAI API key</div>
+              <div>OpenAI API 密钥</div>
               <div className="font-light mt-1 mb-2 text-xs leading-relaxed">
-                Only stored in your browser. Never stored on servers. Overrides
-                your .env config.
+                仅保存在你的浏览器中，绝不会存储在服务器上。会覆盖你的 .env 配置。
               </div>
             </Label>
 
             <Input
               id="openai-api-key"
-              placeholder="OpenAI API key"
+              placeholder="OpenAI API 密钥"
               value={settings.openAiApiKey || ""}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -126,9 +125,9 @@ function SettingsDialog({ settings, setSettings }: Props) {
           {!IS_RUNNING_ON_CLOUD && (
             <div>
               <Label htmlFor="openai-api-key">
-                <div>OpenAI Base URL (optional)</div>
+                <div>OpenAI Base URL（可选）</div>
                 <div className="font-light mt-2 leading-relaxed">
-                  Replace with a proxy URL if you don't want to use the default.
+                  如果不想使用默认值，可替换为代理 URL。
                 </div>
               </Label>
 
@@ -148,16 +147,15 @@ function SettingsDialog({ settings, setSettings }: Props) {
 
           <div>
             <Label htmlFor="anthropic-api-key">
-              <div>Anthropic API key</div>
+              <div>Anthropic API 密钥</div>
               <div className="font-light mt-1 text-xs leading-relaxed">
-                Only stored in your browser. Never stored on servers. Overrides
-                your .env config.
+                仅保存在你的浏览器中，绝不会存储在服务器上。会覆盖你的 .env 配置。
               </div>
             </Label>
 
             <Input
               id="anthropic-api-key"
-              placeholder="Anthropic API key"
+              placeholder="Anthropic API 密钥"
               value={settings.anthropicApiKey || ""}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -171,14 +169,14 @@ function SettingsDialog({ settings, setSettings }: Props) {
           <div className="space-y-3 rounded-md border border-border p-4">
             <div>
               <Label htmlFor="engineering-openai-api-key">
-                <div>Engineering OpenAI API key</div>
+                <div>工程版 OpenAI API 密钥</div>
                 <div className="font-light mt-1 text-xs leading-relaxed">
-                  Used for engineering variants that require VLM support.
+                  用于需要 VLM 支持的工程变体。
                 </div>
               </Label>
               <Input
                 id="engineering-openai-api-key"
-                placeholder="Engineering OpenAI API key"
+                placeholder="工程版 OpenAI API 密钥"
                 value={settings.engineeringOpenAiApiKey || ""}
                 onChange={(e) =>
                   setSettings((s) => ({
@@ -192,14 +190,14 @@ function SettingsDialog({ settings, setSettings }: Props) {
             {!IS_RUNNING_ON_CLOUD && (
               <div>
                 <Label htmlFor="engineering-openai-base-url">
-                  <div>Engineering OpenAI Base URL (optional)</div>
+                  <div>工程版 OpenAI Base URL（可选）</div>
                   <div className="font-light mt-1 text-xs leading-relaxed">
-                    Use a proxy URL for engineering-only requests.
+                    用于工程版请求的代理 URL。
                   </div>
                 </Label>
                 <Input
                   id="engineering-openai-base-url"
-                  placeholder="Engineering OpenAI Base URL"
+                  placeholder="工程版 OpenAI Base URL"
                   value={settings.engineeringOpenAiBaseURL || ""}
                   onChange={(e) =>
                     setSettings((s) => ({
@@ -213,9 +211,9 @@ function SettingsDialog({ settings, setSettings }: Props) {
 
             <div>
               <Label htmlFor="engineering-openai-model">
-                <div>Engineering OpenAI Model</div>
+                <div>工程版 OpenAI 模型</div>
                 <div className="font-light mt-1 text-xs leading-relaxed">
-                  Model name for engineering variant calls.
+                  工程变体调用的模型名称。
                 </div>
               </Label>
               <Input
@@ -234,18 +232,17 @@ function SettingsDialog({ settings, setSettings }: Props) {
 
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
-              <AccordionTrigger>Screenshot by URL Config</AccordionTrigger>
+              <AccordionTrigger>URL 截图配置</AccordionTrigger>
               <AccordionContent>
                 <Label htmlFor="screenshot-one-api-key">
                   <div className="leading-normal font-normal text-xs">
-                    If you want to use URLs directly instead of taking the
-                    screenshot yourself, add a ScreenshotOne API key.{" "}
+                    如果你想直接使用 URL，而不是自己截图，请添加 ScreenshotOne API key。{" "}
                     <a
                       href="https://screenshotone.com?via=screenshot-to-code"
                       className="underline"
                       target="_blank"
                     >
-                      Get 100 screenshots/mo for free.
+                      每月可免费获取 100 张截图。
                     </a>
                   </div>
                 </Label>
@@ -268,11 +265,11 @@ function SettingsDialog({ settings, setSettings }: Props) {
 
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
-              <AccordionTrigger>Theme Settings</AccordionTrigger>
+              <AccordionTrigger>主题设置</AccordionTrigger>
               <AccordionContent className="space-y-4 flex flex-col">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="app-theme">
-                    <div>App Theme</div>
+                    <div>应用主题</div>
                   </Label>
                   <div>
                     <button
@@ -287,14 +284,14 @@ function SettingsDialog({ settings, setSettings }: Props) {
                           ?.classList.toggle("dark"); // enable dark mode for upload container
                       }}
                     >
-                      Toggle dark mode
+                      切换深色模式
                     </button>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <Label htmlFor="editor-theme">
                     <div>
-                      Code Editor Theme - requires page refresh to update
+                      代码编辑器主题 - 需要刷新页面生效
                     </div>
                   </Label>
                   <div>
@@ -321,7 +318,7 @@ function SettingsDialog({ settings, setSettings }: Props) {
         </div>
 
         <DialogFooter>
-          <DialogClose>Save</DialogClose>
+          <DialogClose>保存</DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

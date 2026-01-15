@@ -66,7 +66,7 @@ function ScreenRecorder({
       mediaRecorder.start();
       setScreenRecorderState(ScreenRecorderState.RECORDING);
     } catch (error) {
-      toast.error("Could not start screen recording");
+      toast.error("无法开始屏幕录制");
       throw error;
     }
   };
@@ -90,31 +90,31 @@ function ScreenRecorder({
     if (screenRecordingDataUrl) {
       generateCode([screenRecordingDataUrl], "video");
     } else {
-      toast.error("Screen recording does not exist. Please try again.");
-      throw new Error("No screen recording data url");
+      toast.error("未找到屏幕录制内容，请重试。");
+      throw new Error("没有屏幕录制数据 URL");
     }
   };
 
   return (
     <div className="flex items-center justify-center my-3">
       {screenRecorderState === ScreenRecorderState.INITIAL && (
-        <Button onClick={startScreenRecording}>Record Screen</Button>
+        <Button onClick={startScreenRecording}>录制屏幕</Button>
       )}
 
       {screenRecorderState === ScreenRecorderState.RECORDING && (
         <div className="flex items-center flex-col gap-y-4">
           <div className="flex items-center mr-2 text-xl gap-x-1">
             <span className="block h-10 w-10 bg-red-600 rounded-full mr-1 animate-pulse"></span>
-            <span>Recording...</span>
+            <span>录制中...</span>
           </div>
-          <Button onClick={stopScreenRecording}>Finish Recording</Button>
+          <Button onClick={stopScreenRecording}>结束录制</Button>
         </div>
       )}
 
       {screenRecorderState === ScreenRecorderState.FINISHED && (
         <div className="flex items-center flex-col gap-y-4">
           <div className="flex items-center mr-2 text-xl gap-x-1">
-            <span>Screen Recording Captured.</span>
+            <span>已获取屏幕录制。</span>
           </div>
           {screenRecordingDataUrl && (
             <video
@@ -132,9 +132,9 @@ function ScreenRecorder({
                 setScreenRecorderState(ScreenRecorderState.INITIAL)
               }
             >
-              Re-record
+              重新录制
             </Button>
-            <Button onClick={kickoffGeneration}>Generate</Button>
+            <Button onClick={kickoffGeneration}>生成</Button>
           </div>
         </div>
       )}

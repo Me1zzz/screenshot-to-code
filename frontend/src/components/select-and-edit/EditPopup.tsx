@@ -129,7 +129,7 @@ const EditPopup: React.FC<EditPopupProps> = ({
         ref={textareaRef}
         value={updateText}
         onChange={(e) => setUpdateText(e.target.value)}
-        placeholder="Tell the AI what to change about this element..."
+        placeholder="告诉 AI 这个元素需要改什么..."
         className="dark:bg-gray-700 dark:text-white"
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -143,7 +143,7 @@ const EditPopup: React.FC<EditPopupProps> = ({
           className="dark:bg-gray-700 dark:text-white"
           onClick={() => onUpdate(updateText)}
         >
-          Update <KeyboardShortcutBadge letter="enter" />
+          更新 <KeyboardShortcutBadge letter="enter" />
         </Button>
       </div>
     </div>

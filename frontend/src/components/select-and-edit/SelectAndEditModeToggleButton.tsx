@@ -13,7 +13,7 @@ function SelectAndEditModeToggleButton() {
     >
       <GiClick className="text-lg" />
       <span>
-        {inSelectAndEditMode ? "Exit selection mode" : "Select and update"}
+        {inSelectAndEditMode ? "退出选择模式" : "选择并更新"}
       </span>
     </Button>
   );

@@ -70,7 +70,7 @@ function PreviewComponent({ code, device, doUpdate }: Props) {
         <iframe
           id={`preview-${device}`}
           ref={iframeRef}
-          title="Preview"
+          title="预览"
           className={classNames(
             "border-[4px] border-black rounded-[20px] shadow-lg mx-auto",
             {

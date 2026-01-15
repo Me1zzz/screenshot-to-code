@@ -30,7 +30,7 @@ export default function HistoryDisplay({ shouldDisableReverts }: Props) {
 
   return renderedHistory.length === 0 ? null : (
     <div className="flex flex-col h-screen">
-      <h1 className="font-bold mb-2">Versions</h1>
+      <h1 className="font-bold mb-2">版本</h1>
       <ul className="space-y-0 flex flex-col-reverse">
         {renderedHistory.map((item, index) => (
           <li key={index}>
@@ -49,9 +49,7 @@ export default function HistoryDisplay({ shouldDisableReverts }: Props) {
                   className="flex justify-between truncate flex-1 p-2"
                   onClick={() =>
                     shouldDisableReverts
-                      ? toast.error(
-                          "Please wait for code generation to complete before viewing an older version."
-                        )
+                      ? toast.error("请等待代码生成完成后再查看旧版本。")
                       : setHead(item.hash)
                   }
                 >
@@ -59,7 +57,7 @@ export default function HistoryDisplay({ shouldDisableReverts }: Props) {
                     <h2 className="text-sm truncate">{item.summary}</h2>
                     {item.parentVersion !== null && (
                       <h2 className="text-sm">
-                        (parent: v{item.parentVersion})
+                        (父版本：v{item.parentVersion})
                       </h2>
                     )}
                   </div>
@@ -68,12 +66,12 @@ export default function HistoryDisplay({ shouldDisableReverts }: Props) {
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-6">
                     <CaretSortIcon className="h-4 w-4" />
-                    <span className="sr-only">Toggle</span>
+                    <span className="sr-only">切换</span>
                   </Button>
                 </CollapsibleTrigger>
               </div>
               <CollapsibleContent className="w-full bg-slate-300 p-2">
-                <div>Full prompt: {item.summary}</div>
+                <div>完整提示：{item.summary}</div>
                 <div className="flex justify-end">
                   <Badge>{item.type}</Badge>
                 </div>

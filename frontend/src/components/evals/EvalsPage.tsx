@@ -26,6 +26,13 @@ function EvalsPage() {
   const [folderPath, setFolderPath] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [outputDisplays, setOutputDisplays] = useState<OutputDisplay[]>([]);
+  const criterionLabels: Record<keyof RatingCriteria, string> = {
+    stackAdherence: "技术栈符合度",
+    accuracy: "准确度",
+    codeQuality: "代码质量",
+    mobileResponsiveness: "移动端适配",
+    imageCaptionQuality: "图片描述质量",
+  };
 
   const calculateScores = () => {
     if (ratings.length === 0) {
@@ -77,7 +84,7 @@ function EvalsPage() {
 
   const loadEvals = async () => {
     if (!folderPath) {
-      alert("Please enter a folder path");
+      alert("请输入文件夹路径");
       return;
     }
 
@@ -104,7 +111,7 @@ function EvalsPage() {
       );
     } catch (error) {
       console.error("Error loading evals:", error);
-      alert("Error loading evals. Please check the folder path and try again.");
+      alert("加载评测失败。请检查文件夹路径后重试。");
     } finally {
       setIsLoading(false);
     }
@@ -141,7 +148,7 @@ function EvalsPage() {
             type="text"
             value={folderPath}
             onChange={(e) => setFolderPath(e.target.value)}
-            placeholder="Enter folder name in Downloads"
+            placeholder="输入 Downloads 中的文件夹名"
             className="w-full px-4 py-2 rounded text-black"
           />
           <button
@@ -149,17 +156,17 @@ function EvalsPage() {
             disabled={isLoading}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:bg-blue-300"
           >
-            {isLoading ? "Loading..." : "Load Evals"}
+            {isLoading ? "加载中..." : "加载评测"}
           </button>
         </div>
 
         {evals.length > 0 && (
           <div className="flex flex-col items-center gap-2 text-lg">
-            <h2 className="text-2xl font-semibold mb-2">Scores by Category</h2>
+            <h2 className="text-2xl font-semibold mb-2">按类别评分</h2>
             {Object.entries(calculateScores()).map(([criterion, score]) => (
               <div key={criterion} className="flex gap-x-4 items-center">
-                <span className="min-w-[200px] text-right capitalize">
-                  {criterion.replace(/([A-Z])/g, " $1").trim()}:
+                <span className="min-w-[200px] text-right">
+                  {criterionLabels[criterion as keyof RatingCriteria]}：
                 </span>
                 <span>
                   {score.total} / {score.max} ({score.percentage}%)
@@ -173,10 +180,10 @@ function EvalsPage() {
       <div className="flex flex-col gap-y-8 mt-4 mx-auto justify-center">
         {evals.map((e, index) => (
           <div className="flex flex-col justify-center" key={index}>
-            <h2 className="font-bold text-lg ml-4">Evaluation {index + 1}</h2>
+            <h2 className="font-bold text-lg ml-4">评测 {index + 1}</h2>
             <div className="flex gap-x-2 justify-center ml-4">
               <div className="w-1/2 p-1 border">
-                <img src={e.input} alt={`Input for eval ${index}`} />
+                <img src={e.input} alt={`评测输入 ${index}`} />
               </div>
               {e.outputs.map((output, outputIndex) => (
                 <div className="w-1/2 p-1 border" key={outputIndex}>
@@ -185,7 +192,7 @@ function EvalsPage() {
                       onClick={() => toggleSourceView(index)}
                       className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-sm"
                     >
-                      {outputDisplays[index]?.showSource ? "Show Preview" : "Show Source"}
+                      {outputDisplays[index]?.showSource ? "显示预览" : "显示源码"}
                     </button>
                   </div>
                   {outputDisplays[index]?.showSource ? (
@@ -205,7 +212,7 @@ function EvalsPage() {
             <div className="ml-8 mt-4 space-y-2">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="flex items-center gap-x-4">
-                  <span className="min-w-[160px]">Stack Adherence:</span>
+                  <span className="min-w-[160px]">技术栈符合度：</span>
                   <RatingPicker
                     onSelect={(rating) =>
                       updateRating(index, "stackAdherence", rating)
@@ -215,7 +222,7 @@ function EvalsPage() {
                   />
                 </div>
                 <div className="flex items-center gap-x-4">
-                  <span className="min-w-[160px]">Accuracy:</span>
+                  <span className="min-w-[160px]">准确度：</span>
                   <RatingPicker
                     onSelect={(rating) =>
                       updateRating(index, "accuracy", rating)
@@ -225,7 +232,7 @@ function EvalsPage() {
                   />
                 </div>
                 <div className="flex items-center gap-x-4">
-                  <span className="min-w-[160px]">Code Quality:</span>
+                  <span className="min-w-[160px]">代码质量：</span>
                   <RatingPicker
                     onSelect={(rating) =>
                       updateRating(index, "codeQuality", rating)
@@ -235,7 +242,7 @@ function EvalsPage() {
                   />
                 </div>
                 <div className="flex items-center gap-x-4">
-                  <span className="min-w-[160px]">Mobile Responsiveness:</span>
+                  <span className="min-w-[160px]">移动端适配：</span>
                   <RatingPicker
                     onSelect={(rating) =>
                       updateRating(index, "mobileResponsiveness", rating)
@@ -245,7 +252,7 @@ function EvalsPage() {
                   />
                 </div>
                 <div className="flex items-center gap-x-4">
-                  <span className="min-w-[160px]">Image Caption Quality:</span>
+                  <span className="min-w-[160px]">图片描述质量：</span>
                   <RatingPicker
                     onSelect={(rating) =>
                       updateRating(index, "imageCaptionQuality", rating)

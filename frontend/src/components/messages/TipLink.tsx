@@ -8,7 +8,7 @@ function TipLink() {
       target="_blank"
       rel="noopener"
     >
-      Tips for better results
+      获得更好结果的小贴士
     </a>
   );
 }
