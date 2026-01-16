@@ -77,6 +77,7 @@ async def stream_claude_response(
 
     # Convert OpenAI format messages to Claude format
     system_prompt, claude_messages = convert_openai_messages_to_claude(messages)
+    pprint_prompt([{"role": "system", "content": system_prompt}, *claude_messages])
 
     response = ""
 

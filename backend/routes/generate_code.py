@@ -50,7 +50,6 @@ from typing import (
 )
 from openai.types.chat import ChatCompletionMessageParam
 
-from utils import print_prompt_summary
 
 # WebSocket message types
 MessageType = Literal[
@@ -470,8 +469,6 @@ class PromptCreationStage:
                 history=extracted_params.history,
                 is_imported_from_code=extracted_params.is_imported_from_code,
             )
-
-            print_prompt_summary(prompt_messages, truncate=False)
 
             return prompt_messages, image_cache
         except Exception:
