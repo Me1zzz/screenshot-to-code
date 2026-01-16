@@ -164,8 +164,10 @@ class App {
     const setting = {
       openAiApiKey: null,
       openAiBaseURL: null,
+      openAiModelName: null,
       screenshotOneApiKey: process.env.TEST_SCREENSHOTONE_API_KEY,
       isImageGenerationEnabled: true,
+      enableTemplateGeneration: false,
       editorTheme: "cobalt",
       generatedCodeConfig: this.stack,
       codeGenerationModel: this.model,

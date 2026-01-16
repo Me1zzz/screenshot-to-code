@@ -67,9 +67,11 @@ function App() {
     {
       openAiApiKey: null,
       openAiBaseURL: null,
+      openAiModelName: null,
       anthropicApiKey: null,
       screenshotOneApiKey: null,
       isImageGenerationEnabled: true,
+      enableTemplateGeneration: false,
       editorTheme: EditorTheme.COBALT,
       generatedCodeConfig: Stack.HTML_TAILWIND,
       codeGenerationModel: CodeGenerationModel.CLAUDE_4_5_SONNET_2025_09_29,
@@ -98,7 +100,24 @@ function App() {
         generatedCodeConfig: Stack.HTML_TAILWIND,
       }));
     }
-  }, [settings.generatedCodeConfig, setSettings]);
+    if (typeof settings.enableTemplateGeneration !== "boolean") {
+      setSettings((prev) => ({
+        ...prev,
+        enableTemplateGeneration: false,
+      }));
+    }
+    if (typeof settings.openAiModelName !== "string") {
+      setSettings((prev) => ({
+        ...prev,
+        openAiModelName: null,
+      }));
+    }
+  }, [
+    settings.generatedCodeConfig,
+    settings.enableTemplateGeneration,
+    settings.openAiModelName,
+    setSettings,
+  ]);
 
   // Functions
   const reset = () => {
@@ -241,7 +260,8 @@ function App() {
   function doCreate(
     referenceImages: string[],
     inputMode: "image" | "video",
-    textPrompt: string = ""
+    textPrompt: string = "",
+    enableDeepThinking?: boolean
   ) {
     // Reset any existing state
     reset();
@@ -256,6 +276,7 @@ function App() {
         generationType: "create",
         inputMode,
         prompt: { text: textPrompt, images: [referenceImages[0]] },
+        enableDeepThinking,
       });
     }
   }

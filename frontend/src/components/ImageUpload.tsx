@@ -4,6 +4,8 @@ import { toast } from "react-hot-toast";
 import { URLS } from "../urls";
 import ScreenRecorder from "./recording/ScreenRecorder";
 import { ScreenRecorderState } from "../types";
+import { Switch } from "./ui/switch";
+import { Label } from "./ui/label";
 
 const baseStyle = {
   flex: 1,
@@ -55,7 +57,8 @@ interface Props {
   setReferenceImages: (
     referenceImages: string[],
     inputMode: "image" | "video",
-    textPrompt?: string
+    textPrompt?: string,
+    enableDeepThinking?: boolean
   ) => void;
   onUploadStateChange?: (hasUpload: boolean) => void;
 }
@@ -68,6 +71,7 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
   >("image");
   const [textPrompt, setTextPrompt] = useState("");
   const [showTextPrompt, setShowTextPrompt] = useState(false);
+  const [enableDeepThinking, setEnableDeepThinking] = useState(false);
   const textInputRef = useRef<HTMLTextAreaElement>(null);
 
   // TODO: Switch to Zustand
@@ -83,9 +87,20 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
 
   const handleGenerate = useCallback(() => {
     if (uploadedDataUrls.length > 0) {
-      setReferenceImages(uploadedDataUrls, uploadedInputMode, textPrompt);
+      setReferenceImages(
+        uploadedDataUrls,
+        uploadedInputMode,
+        textPrompt,
+        enableDeepThinking
+      );
     }
-  }, [uploadedDataUrls, uploadedInputMode, textPrompt, setReferenceImages]);
+  }, [
+    uploadedDataUrls,
+    uploadedInputMode,
+    textPrompt,
+    enableDeepThinking,
+    setReferenceImages,
+  ]);
 
   // Global Enter key listener for generating when image is uploaded
   useEffect(() => {
@@ -109,6 +124,7 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
     setFiles([]);
     setTextPrompt("");
     setShowTextPrompt(false);
+    setEnableDeepThinking(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -184,7 +200,7 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
     images: string[],
     inputMode: "image" | "video"
   ) => {
-    setReferenceImages(images, inputMode, "");
+    setReferenceImages(images, inputMode, "", false);
   };
 
   return (
@@ -264,6 +280,16 @@ function ImageUpload({ setReferenceImages, onUploadStateChange }: Props) {
 
           {/* Generate Button */}
           <div className="flex flex-col items-center gap-1 w-full max-w-md">
+            <div className="flex items-center justify-between w-full pb-2">
+              <Label htmlFor="deep-thinking" className="text-sm text-gray-600">
+                是否开启深度思考
+              </Label>
+              <Switch
+                id="deep-thinking"
+                checked={enableDeepThinking}
+                onCheckedChange={setEnableDeepThinking}
+              />
+            </div>
             <button
               onClick={handleGenerate}
               className="w-full py-3 px-6 bg-black text-white font-medium rounded-md hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
