@@ -1,4 +1,5 @@
 import asyncio
+import re
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 import traceback
@@ -6,6 +7,7 @@ from typing import Callable, Awaitable
 from fastapi import APIRouter, WebSocket
 import openai
 from codegen.utils import extract_html_content
+from StepArkUI.pipeline import layout_generate
 from config import (
     ANTHROPIC_API_KEY,
     GEMINI_API_KEY,
@@ -66,6 +68,49 @@ from ws.constants import APP_ERROR_WEB_SOCKET_CODE  # type: ignore
 
 
 router = APIRouter()
+
+BASE64_PATTERN = re.compile(r"data:[^;]+;base64,[A-Za-z0-9+/=]+")
+
+
+def replace_base64_placeholders(
+    text: str,
+    existing_map: dict[str, str] | None = None,
+) -> tuple[str, dict[str, str]]:
+    if not text:
+        return text, existing_map or {}
+
+    base64_to_placeholder = existing_map or {}
+    counter = len(base64_to_placeholder) + 1
+
+    def _replace(match: re.Match[str]) -> str:
+        nonlocal counter
+        base64_value = match.group(0)
+        placeholder = base64_to_placeholder.get(base64_value)
+        if placeholder is None:
+            placeholder = f"__BASE64_IMAGE_{counter}__"
+            base64_to_placeholder[base64_value] = placeholder
+            counter += 1
+        return placeholder
+
+    return BASE64_PATTERN.sub(_replace, text), base64_to_placeholder
+
+
+def restore_base64_placeholders(
+    text: str, base64_to_placeholder: dict[str, str] | None
+) -> str:
+    if not text or not base64_to_placeholder:
+        return text
+
+    placeholder_to_base64 = {
+        placeholder: base64_value
+        for base64_value, placeholder in base64_to_placeholder.items()
+    }
+    restored_text = text
+    for placeholder, base64_value in placeholder_to_base64.items():
+        restored_text = restored_text.replace(placeholder, base64_value)
+    return restored_text
+
+
 
 
 class VariantErrorAlreadySent(Exception):
@@ -213,10 +258,13 @@ class ExtractedParams:
     openai_api_key: str | None
     anthropic_api_key: str | None
     openai_base_url: str | None
+    openai_model_name: str | None
     generation_type: Literal["create", "update"]
     prompt: PromptContent
     history: List[Dict[str, Any]]
     is_imported_from_code: bool
+    enable_template_generation: bool
+    enable_deep_thinking: bool
 
 
 class ParameterExtractionStage:
@@ -262,8 +310,12 @@ class ParameterExtractionStage:
         if not openai_base_url:
             print("Using official OpenAI URL")
 
+        openai_model_name = params.get("openAiModelName")
+
         # Get the image generation flag from the request. Fall back to True if not provided.
         should_generate_images = bool(params.get("isImageGenerationEnabled", True))
+        enable_template_generation = bool(params.get("enableTemplateGeneration", False))
+        enable_deep_thinking = bool(params.get("enableDeepThinking", False))
 
         # Extract and validate generation type
         generation_type = params.get("generationType", "create")
@@ -288,10 +340,13 @@ class ParameterExtractionStage:
             openai_api_key=openai_api_key,
             anthropic_api_key=anthropic_api_key,
             openai_base_url=openai_base_url,
+            openai_model_name=openai_model_name,
             generation_type=generation_type,
             prompt=prompt,
             history=history,
             is_imported_from_code=is_imported_from_code,
+            enable_template_generation=enable_template_generation,
+            enable_deep_thinking=enable_deep_thinking,
         )
 
     def _get_from_settings_dialog_or_env(
@@ -422,8 +477,10 @@ class MockResponseStage:
     def __init__(
         self,
         send_message: Callable[[MessageType, str, int], Coroutine[Any, Any, None]],
+        base64_placeholder_map: dict[str, str] | None,
     ):
         self.send_message = send_message
+        self.base64_placeholder_map = base64_placeholder_map
 
     async def generate_mock_response(
         self,
@@ -437,7 +494,12 @@ class MockResponseStage:
         completion_results = [
             await mock_completion(process_chunk, input_mode=input_mode)
         ]
-        completions = [result["code"] for result in completion_results]
+        completions = []
+        for result in completion_results:
+            restored_code = restore_base64_placeholders(
+                result["code"], self.base64_placeholder_map
+            )
+            completions.append(restored_code)
 
         # Send the complete variant back to the client
         await self.send_message("setCode", completions[0], 0)
@@ -453,9 +515,11 @@ class VideoGenerationStage:
         self,
         send_message: Callable[[MessageType, str, int], Coroutine[Any, Any, None]],
         throw_error: Callable[[str], Coroutine[Any, Any, None]],
+        base64_placeholder_map: dict[str, str] | None,
     ):
         self.send_message = send_message
         self.throw_error = throw_error
+        self.base64_placeholder_map = base64_placeholder_map
 
     async def generate_video_code(
         self,
@@ -485,6 +549,10 @@ class VideoGenerationStage:
             )
         ]
         completions = [result["code"] for result in completion_results]
+        completions = [
+            restore_base64_placeholders(completion, self.base64_placeholder_map)
+            for completion in completions
+        ]
 
         # Send the complete variant back to the client
         await self.send_message("setCode", completions[0], 0)
@@ -528,12 +596,14 @@ class ParallelGenerationStage:
         openai_base_url: str | None,
         anthropic_api_key: str | None,
         should_generate_images: bool,
+        base64_placeholder_map: dict[str, str] | None,
     ):
         self.send_message = send_message
         self.openai_api_key = openai_api_key
         self.openai_base_url = openai_base_url
         self.anthropic_api_key = anthropic_api_key
         self.should_generate_images = should_generate_images
+        self.base64_placeholder_map = base64_placeholder_map
 
     async def process_variants(
         self,
@@ -729,6 +799,10 @@ class ParallelGenerationStage:
 
                 # Extract HTML content
                 processed_html = extract_html_content(processed_html)
+                processed_html = restore_base64_placeholders(
+                    processed_html, self.base64_placeholder_map
+                )
+                variant_completions[index] = processed_html
 
                 # Send the complete variant back to the client
                 await self.send_message("setCode", processed_html, index)
@@ -811,14 +885,90 @@ class StatusBroadcastMiddleware(Middleware):
         await next_func()
 
 
+class TemplateGenerationMiddleware(Middleware):
+    """Optionally generates an HTML template before code generation."""
+
+    async def process(
+        self, context: PipelineContext, next_func: Callable[[], Awaitable[None]]
+    ) -> None:
+        assert context.extracted_params is not None
+        extracted_params = context.extracted_params
+
+        if (
+            not extracted_params.enable_template_generation
+            or extracted_params.input_mode != "image"
+            or extracted_params.generation_type != "create"
+        ):
+            await next_func()
+            return
+
+        if not extracted_params.prompt.get("images"):
+            await next_func()
+            return
+
+        image_bytes = extracted_params.prompt["images"][0]
+        model_config = {
+            "api_key": extracted_params.openai_api_key,
+            "base_url": extracted_params.openai_base_url,
+            "model_name": extracted_params.openai_model_name,
+        }
+
+        try:
+            template_html = layout_generate(
+                image_bytes=image_bytes, model_config=model_config
+            )
+        except Exception as error:
+            await context.throw_error(f"Template generation failed: {error}")
+            return
+
+        context.metadata["template_html"] = template_html
+
+        if not extracted_params.enable_deep_thinking:
+            for i in range(NUM_VARIANTS):
+                await context.send_message("setCode", template_html, i)
+                await context.send_message(
+                    "variantComplete",
+                    "Variant generation complete",
+                    i,
+                )
+            return
+
+        await next_func()
+
+
 class PromptCreationMiddleware(Middleware):
     """Handles prompt creation"""
 
     async def process(
         self, context: PipelineContext, next_func: Callable[[], Awaitable[None]]
     ) -> None:
-        prompt_creator = PromptCreationStage(context.throw_error)
         assert context.extracted_params is not None
+        prompt_creator = PromptCreationStage(context.throw_error)
+        base64_placeholder_map = context.metadata.get("base64_placeholder_map", {})
+
+        template_html = context.metadata.get("template_html")
+        if template_html and context.extracted_params.enable_deep_thinking:
+            context.extracted_params.prompt["text"] = (
+                "基于以下代码，以及截图页面还原html代码\n" + template_html
+            )
+
+        prompt_text = context.extracted_params.prompt.get("text", "")
+        prompt_text, base64_placeholder_map = replace_base64_placeholders(
+            prompt_text, base64_placeholder_map
+        )
+        context.extracted_params.prompt["text"] = prompt_text
+
+        updated_history: list[dict[str, Any]] = []
+        for item in context.extracted_params.history:
+            updated_item = dict(item)
+            updated_text, base64_placeholder_map = replace_base64_placeholders(
+                updated_item.get("text", ""), base64_placeholder_map
+            )
+            updated_item["text"] = updated_text
+            updated_history.append(updated_item)
+        context.extracted_params.history = updated_history
+        context.metadata["base64_placeholder_map"] = base64_placeholder_map
+
         context.prompt_messages, context.image_cache = (
             await prompt_creator.create_prompt(
                 context.extracted_params,
@@ -836,7 +986,10 @@ class CodeGenerationMiddleware(Middleware):
     ) -> None:
         if SHOULD_MOCK_AI_RESPONSE:
             # Use mock response for testing
-            mock_stage = MockResponseStage(context.send_message)
+            mock_stage = MockResponseStage(
+                context.send_message,
+                context.metadata.get("base64_placeholder_map"),
+            )
             assert context.extracted_params is not None
             context.completions = await mock_stage.generate_mock_response(
                 context.extracted_params.input_mode
@@ -847,7 +1000,9 @@ class CodeGenerationMiddleware(Middleware):
                 if context.extracted_params.input_mode == "video":
                     # Use video generation for video mode
                     video_stage = VideoGenerationStage(
-                        context.send_message, context.throw_error
+                        context.send_message,
+                        context.throw_error,
+                        context.metadata.get("base64_placeholder_map"),
                     )
                     context.completions = await video_stage.generate_video_code(
                         context.prompt_messages,
@@ -871,6 +1026,9 @@ class CodeGenerationMiddleware(Middleware):
                         openai_base_url=context.extracted_params.openai_base_url,
                         anthropic_api_key=context.extracted_params.anthropic_api_key,
                         should_generate_images=context.extracted_params.should_generate_images,
+                        base64_placeholder_map=context.metadata.get(
+                            "base64_placeholder_map"
+                        ),
                     )
 
                     context.variant_completions = (
@@ -928,6 +1086,7 @@ async def stream_code(websocket: WebSocket):
     pipeline.use(WebSocketSetupMiddleware())
     pipeline.use(ParameterExtractionMiddleware())
     pipeline.use(StatusBroadcastMiddleware())
+    pipeline.use(TemplateGenerationMiddleware())
     pipeline.use(PromptCreationMiddleware())
     pipeline.use(CodeGenerationMiddleware())
     pipeline.use(PostProcessingMiddleware())

@@ -64,6 +64,24 @@ function SettingsDialog({ settings, setSettings }: Props) {
             }
           />
         </div>
+        <div className="flex items-center space-x-2">
+          <Label htmlFor="template-generation">
+            <div>Generate HTML template before codegen</div>
+            <div className="font-light mt-2 text-xs">
+              Uses a layout template as a starting point before code generation.
+            </div>
+          </Label>
+          <Switch
+            id="template-generation"
+            checked={settings.enableTemplateGeneration}
+            onCheckedChange={() =>
+              setSettings((s) => ({
+                ...s,
+                enableTemplateGeneration: !s.enableTemplateGeneration,
+              }))
+            }
+          />
+        </div>
         <div className="flex flex-col space-y-6">
           <div>
             <Label htmlFor="openai-api-key">
@@ -109,6 +127,26 @@ function SettingsDialog({ settings, setSettings }: Props) {
               />
             </div>
           )}
+          <div>
+            <Label htmlFor="openai-model-name">
+              <div>OpenAI Model Name (optional)</div>
+              <div className="font-light mt-2 leading-relaxed">
+                Used for template generation when enabled.
+              </div>
+            </Label>
+
+            <Input
+              id="openai-model-name"
+              placeholder="gpt-4o-mini"
+              value={settings.openAiModelName || ""}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  openAiModelName: e.target.value,
+                }))
+              }
+            />
+          </div>
 
           <div>
             <Label htmlFor="anthropic-api-key">

@@ -9,8 +9,10 @@ export enum EditorTheme {
 export interface Settings {
   openAiApiKey: string | null;
   openAiBaseURL: string | null;
+  openAiModelName: string | null;
   screenshotOneApiKey: string | null;
   isImageGenerationEnabled: boolean;
+  enableTemplateGeneration: boolean;
   editorTheme: EditorTheme;
   generatedCodeConfig: Stack;
   codeGenerationModel: CodeGenerationModel;
@@ -42,6 +44,7 @@ export interface CodeGenerationParams {
   prompt: PromptContent;
   history?: PromptContent[];
   isImportedFromCode?: boolean;
+  enableDeepThinking?: boolean;
 }
 
 export type FullGenerationSettings = CodeGenerationParams & Settings;

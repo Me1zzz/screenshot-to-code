@@ -9,7 +9,8 @@ interface Props {
   doCreate: (
     urls: string[],
     inputMode: "image" | "video",
-    textPrompt?: string
+    textPrompt?: string,
+    enableDeepThinking?: boolean
   ) => void;
 }
 
