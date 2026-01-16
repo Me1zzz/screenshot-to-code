@@ -165,6 +165,7 @@ class App {
       openAiApiKey: null,
       openAiBaseURL: null,
       openAiModelName: null,
+      templatePromptPrefix: "基于以下代码，以及截图页面还原html代码\n",
       screenshotOneApiKey: process.env.TEST_SCREENSHOTONE_API_KEY,
       isImageGenerationEnabled: true,
       enableTemplateGeneration: false,

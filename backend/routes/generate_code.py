@@ -22,9 +22,7 @@ from custom_types import InputMode
 from llm import (
     Completion,
     Llm,
-    OPENAI_MODELS,
-    ANTHROPIC_MODELS,
-    GEMINI_MODELS,
+    MODEL_PROVIDER,
 )
 from models import (
     stream_claude_response,
@@ -70,6 +68,17 @@ from ws.constants import APP_ERROR_WEB_SOCKET_CODE  # type: ignore
 router = APIRouter()
 
 BASE64_PATTERN = re.compile(r"data:[^;]+;base64,[A-Za-z0-9+/=]+")
+DEFAULT_TEMPLATE_PROMPT_PREFIX = "基于以下代码，以及截图页面还原html代码\n"
+
+
+@dataclass(frozen=True)
+class ModelSpec:
+    name: str
+    provider: Literal["openai", "anthropic", "gemini"]
+
+
+def model_spec_from_llm(model: Llm) -> ModelSpec:
+    return ModelSpec(name=model.value, provider=MODEL_PROVIDER[model])
 
 
 def replace_base64_placeholders(
@@ -131,7 +140,7 @@ class PipelineContext:
     extracted_params: "ExtractedParams | None" = None
     prompt_messages: List[ChatCompletionMessageParam] = field(default_factory=list)
     image_cache: Dict[str, str] = field(default_factory=dict)
-    variant_models: List[Llm] = field(default_factory=list)
+    variant_models: List[ModelSpec] = field(default_factory=list)
     completions: List[str] = field(default_factory=list)
     variant_completions: Dict[int, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -259,6 +268,8 @@ class ExtractedParams:
     anthropic_api_key: str | None
     openai_base_url: str | None
     openai_model_name: str | None
+    template_prompt_prefix: str
+    force_openai: bool
     generation_type: Literal["create", "update"]
     prompt: PromptContent
     history: List[Dict[str, Any]]
@@ -291,6 +302,18 @@ class ParameterExtractionStage:
             raise ValueError(f"Invalid input mode: {input_mode}")
         validated_input_mode = cast(InputMode, input_mode)
 
+        openai_api_key_from_settings = params.get("openAiApiKey")
+        openai_base_url_from_settings = params.get("openAiBaseURL")
+        openai_model_name = params.get("openAiModelName") or None
+        openai_settings_configured = any(
+            value
+            for value in [
+                openai_api_key_from_settings,
+                openai_base_url_from_settings,
+                openai_model_name,
+            ]
+        )
+
         openai_api_key = self._get_from_settings_dialog_or_env(
             params, "openAiApiKey", OPENAI_API_KEY
         )
@@ -309,8 +332,9 @@ class ParameterExtractionStage:
             )
         if not openai_base_url:
             print("Using official OpenAI URL")
-
-        openai_model_name = params.get("openAiModelName")
+        template_prompt_prefix = params.get("templatePromptPrefix")
+        if template_prompt_prefix is None:
+            template_prompt_prefix = DEFAULT_TEMPLATE_PROMPT_PREFIX
 
         # Get the image generation flag from the request. Fall back to True if not provided.
         should_generate_images = bool(params.get("isImageGenerationEnabled", True))
@@ -341,6 +365,8 @@ class ParameterExtractionStage:
             anthropic_api_key=anthropic_api_key,
             openai_base_url=openai_base_url,
             openai_model_name=openai_model_name,
+            template_prompt_prefix=template_prompt_prefix,
+            force_openai=openai_settings_configured,
             generation_type=generation_type,
             prompt=prompt,
             history=history,
@@ -377,8 +403,10 @@ class ModelSelectionStage:
         input_mode: InputMode,
         openai_api_key: str | None,
         anthropic_api_key: str | None,
+        openai_model_name: str | None,
+        force_openai: bool,
         gemini_api_key: str | None = None,
-    ) -> List[Llm]:
+    ) -> List[ModelSpec]:
         """Select appropriate models based on available API keys"""
         try:
             variant_models = self._get_variant_models(
@@ -387,13 +415,15 @@ class ModelSelectionStage:
                 NUM_VARIANTS,
                 openai_api_key,
                 anthropic_api_key,
+                openai_model_name,
+                force_openai,
                 gemini_api_key,
             )
 
             # Print the variant models (one per line)
             print("Variant models:")
             for index, model in enumerate(variant_models):
-                print(f"Variant {index + 1}: {model.value}")
+                print(f"Variant {index + 1}: {model.name}")
 
             return variant_models
         except Exception:
@@ -411,11 +441,17 @@ class ModelSelectionStage:
         num_variants: int,
         openai_api_key: str | None,
         anthropic_api_key: str | None,
+        openai_model_name: str | None,
+        force_openai: bool,
         gemini_api_key: str | None,
-    ) -> List[Llm]:
+    ) -> List[ModelSpec]:
         """Simple model cycling that scales with num_variants"""
 
         # Define models based on available API keys
+        if force_openai:
+            model_name = openai_model_name or Llm.GPT_4_1_2025_04_14.value
+            return [ModelSpec(name=model_name, provider="openai")]
+
         if gemini_api_key and anthropic_api_key:
             models = [
                 Llm.GEMINI_3_FLASH_PREVIEW,
@@ -426,16 +462,19 @@ class ModelSelectionStage:
         elif openai_api_key and anthropic_api_key:
             models = [Llm.CLAUDE_4_5_SONNET_2025_09_29, Llm.GPT_4_1_2025_04_14]
         elif anthropic_api_key:
-            models = [Llm.CLAUDE_4_5_SONNET_2025_09_29, Llm.CLAUDE_4_5_OPUS_2025_11_01]
+            models = [
+                Llm.CLAUDE_4_5_SONNET_2025_09_29,
+                Llm.CLAUDE_4_5_OPUS_2025_11_01,
+            ]
         elif openai_api_key:
             models = [Llm.GPT_4_1_2025_04_14, Llm.GPT_4O_2024_11_20]
         else:
             raise Exception("No OpenAI or Anthropic key")
 
         # Cycle through models: [A, B] with num=5 becomes [A, B, A, B, A]
-        selected_models: List[Llm] = []
+        selected_models: List[ModelSpec] = []
         for i in range(num_variants):
-            selected_models.append(models[i % len(models)])
+            selected_models.append(model_spec_from_llm(models[i % len(models)]))
 
         return selected_models
 
@@ -607,7 +646,7 @@ class ParallelGenerationStage:
 
     async def process_variants(
         self,
-        variant_models: List[Llm],
+        variant_models: List[ModelSpec],
         prompt_messages: List[ChatCompletionMessageParam],
         image_cache: Dict[str, str],
         params: Dict[str, str],
@@ -639,7 +678,7 @@ class ParallelGenerationStage:
 
     def _create_generation_tasks(
         self,
-        variant_models: List[Llm],
+        variant_models: List[ModelSpec],
         prompt_messages: List[ChatCompletionMessageParam],
         params: Dict[str, str],
     ) -> List[Coroutine[Any, Any, Completion]]:
@@ -647,27 +686,27 @@ class ParallelGenerationStage:
         tasks: List[Coroutine[Any, Any, Completion]] = []
 
         for index, model in enumerate(variant_models):
-            if model in OPENAI_MODELS:
+            if model.provider == "openai":
                 if self.openai_api_key is None:
                     raise Exception("OpenAI API key is missing.")
 
                 tasks.append(
                     self._stream_openai_with_error_handling(
                         prompt_messages,
-                        model_name=model.value,
+                        model_name=model.name,
                         index=index,
                     )
                 )
-            elif GEMINI_API_KEY and model in GEMINI_MODELS:
+            elif GEMINI_API_KEY and model.provider == "gemini":
                 tasks.append(
                     stream_gemini_response(
                         prompt_messages,
                         api_key=GEMINI_API_KEY,
                         callback=lambda x, i=index: self._process_chunk(x, i),
-                        model_name=model.value,
+                        model_name=model.name,
                     )
                 )
-            elif model in ANTHROPIC_MODELS:
+            elif model.provider == "anthropic":
                 if self.anthropic_api_key is None:
                     raise Exception("Anthropic API key is missing.")
 
@@ -676,7 +715,7 @@ class ParallelGenerationStage:
                         prompt_messages,
                         api_key=self.anthropic_api_key,
                         callback=lambda x, i=index: self._process_chunk(x, i),
-                        model_name=model.value,
+                        model_name=model.name,
                     )
                 )
 
@@ -779,7 +818,7 @@ class ParallelGenerationStage:
         self,
         index: int,
         task: asyncio.Task[Completion],
-        model: Llm,
+        model: ModelSpec,
         image_cache: Dict[str, str],
         variant_completions: Dict[int, str],
     ):
@@ -787,7 +826,7 @@ class ParallelGenerationStage:
         try:
             completion = await task
 
-            print(f"{model.value} completion took {completion['duration']:.2f} seconds")
+            print(f"{model.name} completion took {completion['duration']:.2f} seconds")
             variant_completions[index] = completion["code"]
 
             try:
@@ -877,9 +916,11 @@ class StatusBroadcastMiddleware(Middleware):
         self, context: PipelineContext, next_func: Callable[[], Awaitable[None]]
     ) -> None:
         # Tell frontend how many variants we're using
-        await context.send_message("variantCount", str(NUM_VARIANTS), 0)
+        assert context.extracted_params is not None
+        variant_count = 1 if context.extracted_params.force_openai else NUM_VARIANTS
+        await context.send_message("variantCount", str(variant_count), 0)
 
-        for i in range(NUM_VARIANTS):
+        for i in range(variant_count):
             await context.send_message("status", "Generating code...", i)
 
         await next_func()
@@ -924,7 +965,8 @@ class TemplateGenerationMiddleware(Middleware):
         context.metadata["template_html"] = template_html
 
         if not extracted_params.enable_deep_thinking:
-            for i in range(NUM_VARIANTS):
+            variant_count = 1 if extracted_params.force_openai else NUM_VARIANTS
+            for i in range(variant_count):
                 await context.send_message("setCode", template_html, i)
                 await context.send_message(
                     "variantComplete",
@@ -949,7 +991,7 @@ class PromptCreationMiddleware(Middleware):
         template_html = context.metadata.get("template_html")
         if template_html and context.extracted_params.enable_deep_thinking:
             context.extracted_params.prompt["text"] = (
-                "基于以下代码，以及截图页面还原html代码\n" + template_html
+                context.extracted_params.template_prompt_prefix + template_html
             )
 
         prompt_text = context.extracted_params.prompt.get("text", "")
@@ -1016,6 +1058,8 @@ class CodeGenerationMiddleware(Middleware):
                         input_mode=context.extracted_params.input_mode,
                         openai_api_key=context.extracted_params.openai_api_key,
                         anthropic_api_key=context.extracted_params.anthropic_api_key,
+                        openai_model_name=context.extracted_params.openai_model_name,
+                        force_openai=context.extracted_params.force_openai,
                         gemini_api_key=GEMINI_API_KEY,
                     )
 

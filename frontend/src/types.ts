@@ -10,6 +10,7 @@ export interface Settings {
   openAiApiKey: string | null;
   openAiBaseURL: string | null;
   openAiModelName: string | null;
+  templatePromptPrefix: string | null;
   screenshotOneApiKey: string | null;
   isImageGenerationEnabled: boolean;
   enableTemplateGeneration: boolean;
