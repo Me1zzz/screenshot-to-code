@@ -84,6 +84,27 @@ function SettingsDialog({ settings, setSettings }: Props) {
         </div>
         <div className="flex flex-col space-y-6">
           <div>
+            <Label htmlFor="template-prompt-prefix">
+              <div>Template Prompt Prefix (Deep Thinking)</div>
+              <div className="font-light mt-1 mb-2 text-xs leading-relaxed">
+                Prepended to the generated HTML template when deep thinking is
+                enabled.
+              </div>
+            </Label>
+
+            <Input
+              id="template-prompt-prefix"
+              placeholder="Template prompt prefix"
+              value={settings.templatePromptPrefix || ""}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  templatePromptPrefix: e.target.value,
+                }))
+              }
+            />
+          </div>
+          <div>
             <Label htmlFor="openai-api-key">
               <div>OpenAI API key</div>
               <div className="font-light mt-1 mb-2 text-xs leading-relaxed">
@@ -131,7 +152,8 @@ function SettingsDialog({ settings, setSettings }: Props) {
             <Label htmlFor="openai-model-name">
               <div>OpenAI Model Name (optional)</div>
               <div className="font-light mt-2 leading-relaxed">
-                Used for template generation when enabled.
+                Used for code generation and template generation when enabled.
+                Configuring it forces OpenAI mode and uses only this model.
               </div>
             </Label>
 

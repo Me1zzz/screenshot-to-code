@@ -68,6 +68,7 @@ function App() {
       openAiApiKey: null,
       openAiBaseURL: null,
       openAiModelName: null,
+      templatePromptPrefix: "基于以下代码，以及截图页面还原html代码\n",
       anthropicApiKey: null,
       screenshotOneApiKey: null,
       isImageGenerationEnabled: true,
@@ -112,10 +113,17 @@ function App() {
         openAiModelName: null,
       }));
     }
+    if (typeof settings.templatePromptPrefix !== "string") {
+      setSettings((prev) => ({
+        ...prev,
+        templatePromptPrefix: "基于以下代码，以及截图页面还原html代码\n",
+      }));
+    }
   }, [
     settings.generatedCodeConfig,
     settings.enableTemplateGeneration,
     settings.openAiModelName,
+    settings.templatePromptPrefix,
     setSettings,
   ]);
 

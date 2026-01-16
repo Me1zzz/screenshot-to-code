@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock
-from routes.generate_code import ModelSelectionStage
+from routes.generate_code import ModelSelectionStage, ModelSpec
 from llm import Llm
 
 
@@ -20,14 +20,20 @@ class TestModelSelectionAllKeys:
             input_mode="text",
             openai_api_key="key",
             anthropic_api_key="key",
+            openai_model_name=None,
+            force_openai=False,
             gemini_api_key="key",
         )
 
         expected = [
-            Llm.GEMINI_3_FLASH_PREVIEW,
-            Llm.CLAUDE_4_5_SONNET_2025_09_29,
-            Llm.CLAUDE_4_5_OPUS_2025_11_01,
-            Llm.GEMINI_3_PRO_PREVIEW,
+            ModelSpec(name=Llm.GEMINI_3_FLASH_PREVIEW.value, provider="gemini"),
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_SONNET_2025_09_29.value, provider="anthropic"
+            ),
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_OPUS_2025_11_01.value, provider="anthropic"
+            ),
+            ModelSpec(name=Llm.GEMINI_3_PRO_PREVIEW.value, provider="gemini"),
         ]
         assert models == expected
 
@@ -39,14 +45,20 @@ class TestModelSelectionAllKeys:
             input_mode="image",
             openai_api_key="key",
             anthropic_api_key="key",
+            openai_model_name=None,
+            force_openai=False,
             gemini_api_key="key",
         )
 
         expected = [
-            Llm.GEMINI_3_FLASH_PREVIEW,
-            Llm.CLAUDE_4_5_SONNET_2025_09_29,
-            Llm.CLAUDE_4_5_OPUS_2025_11_01,
-            Llm.GEMINI_3_PRO_PREVIEW,
+            ModelSpec(name=Llm.GEMINI_3_FLASH_PREVIEW.value, provider="gemini"),
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_SONNET_2025_09_29.value, provider="anthropic"
+            ),
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_OPUS_2025_11_01.value, provider="anthropic"
+            ),
+            ModelSpec(name=Llm.GEMINI_3_PRO_PREVIEW.value, provider="gemini"),
         ]
         assert models == expected
 
@@ -67,14 +79,20 @@ class TestModelSelectionOpenAIAnthropic:
             input_mode="text",
             openai_api_key="key",
             anthropic_api_key="key",
+            openai_model_name=None,
+            force_openai=False,
             gemini_api_key=None,
         )
 
         expected = [
-            Llm.CLAUDE_4_5_SONNET_2025_09_29,
-            Llm.GPT_4_1_2025_04_14,
-            Llm.CLAUDE_4_5_SONNET_2025_09_29,
-            Llm.GPT_4_1_2025_04_14,
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_SONNET_2025_09_29.value, provider="anthropic"
+            ),
+            ModelSpec(name=Llm.GPT_4_1_2025_04_14.value, provider="openai"),
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_SONNET_2025_09_29.value, provider="anthropic"
+            ),
+            ModelSpec(name=Llm.GPT_4_1_2025_04_14.value, provider="openai"),
         ]
         assert models == expected
 
@@ -95,14 +113,24 @@ class TestModelSelectionAnthropicOnly:
             input_mode="text",
             openai_api_key=None,
             anthropic_api_key="key",
+            openai_model_name=None,
+            force_openai=False,
             gemini_api_key=None,
         )
 
         expected = [
-            Llm.CLAUDE_4_5_SONNET_2025_09_29,
-            Llm.CLAUDE_4_5_OPUS_2025_11_01,
-            Llm.CLAUDE_4_5_SONNET_2025_09_29,
-            Llm.CLAUDE_4_5_OPUS_2025_11_01,
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_SONNET_2025_09_29.value, provider="anthropic"
+            ),
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_OPUS_2025_11_01.value, provider="anthropic"
+            ),
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_SONNET_2025_09_29.value, provider="anthropic"
+            ),
+            ModelSpec(
+                name=Llm.CLAUDE_4_5_OPUS_2025_11_01.value, provider="anthropic"
+            ),
         ]
         assert models == expected
 
@@ -123,15 +151,42 @@ class TestModelSelectionOpenAIOnly:
             input_mode="text",
             openai_api_key="key",
             anthropic_api_key=None,
+            openai_model_name=None,
+            force_openai=False,
             gemini_api_key=None,
         )
 
         expected = [
-            Llm.GPT_4_1_2025_04_14,
-            Llm.GPT_4O_2024_11_20,
-            Llm.GPT_4_1_2025_04_14,
-            Llm.GPT_4O_2024_11_20,
+            ModelSpec(name=Llm.GPT_4_1_2025_04_14.value, provider="openai"),
+            ModelSpec(name=Llm.GPT_4O_2024_11_20.value, provider="openai"),
+            ModelSpec(name=Llm.GPT_4_1_2025_04_14.value, provider="openai"),
+            ModelSpec(name=Llm.GPT_4O_2024_11_20.value, provider="openai"),
         ]
+        assert models == expected
+
+
+class TestModelSelectionForcedOpenAI:
+    """Test model selection when user forces OpenAI via settings."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        mock_throw_error = AsyncMock()
+        self.model_selector = ModelSelectionStage(mock_throw_error)
+
+    @pytest.mark.asyncio
+    async def test_force_openai_uses_single_model(self):
+        """Forced OpenAI: single configured model only."""
+        models = await self.model_selector.select_models(
+            generation_type="create",
+            input_mode="text",
+            openai_api_key="key",
+            anthropic_api_key="key",
+            openai_model_name="gpt-4o-mini",
+            force_openai=True,
+            gemini_api_key="key",
+        )
+
+        expected = [ModelSpec(name="gpt-4o-mini", provider="openai")]
         assert models == expected
 
 
@@ -152,5 +207,7 @@ class TestModelSelectionNoKeys:
                 input_mode="text",
                 openai_api_key=None,
                 anthropic_api_key=None,
+                openai_model_name=None,
+                force_openai=False,
                 gemini_api_key=None,
             )
