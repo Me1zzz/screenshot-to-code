@@ -3,6 +3,7 @@ from typing import Awaitable, Callable, List
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionChunk
 from llm import Completion
+from utils import pprint_prompt
 
 
 async def stream_openai_response(
@@ -50,6 +51,8 @@ async def stream_openai_response(
         params["max_completion_tokens"] = 20000
         params["stream"] = True
         params["reasoning_effort"] = "high"
+
+    pprint_prompt(messages)
 
     # O1 doesn't support streaming
     if model_name == "o1-2024-12-17":

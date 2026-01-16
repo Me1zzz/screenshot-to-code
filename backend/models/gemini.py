@@ -5,6 +5,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from google import genai
 from google.genai import types
 from llm import Completion, Llm
+from utils import pprint_prompt
 
 # Set to True to print debug messages for Gemini requests
 DEBUG_GEMINI = False
@@ -167,6 +168,8 @@ async def stream_gemini_response(
             max_output_tokens=8000,
             system_instruction=system_prompt,
         )
+
+    pprint_prompt(messages)
 
     async for chunk in await client.aio.models.generate_content_stream(
         model=model_name,
