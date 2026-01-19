@@ -35,3 +35,15 @@ def test_restore_placeholders_in_vlm_output() -> None:
     restored_html = restore_base64_placeholders(placeholder_html, mapping)
 
     assert restored_html == '<img src="data:image/png;base64,CCC333" />'
+
+
+def test_replace_reuses_placeholders_for_duplicate_data_urls() -> None:
+    html = (
+        '<img src="data:image/png;base64,AAA111" />'
+        '<img src="data:image/png;base64,AAA111" />'
+    )
+
+    scrubbed_html, mapping = replace_base64_data_urls(html)
+
+    assert scrubbed_html.count("__IMG_BASE64_1__") == 2
+    assert mapping == {"__IMG_BASE64_1__": "data:image/png;base64,AAA111"}

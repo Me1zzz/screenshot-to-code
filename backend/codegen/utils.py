@@ -20,19 +20,25 @@ def extract_html_content(text: str):
         return text
 
 
-def replace_base64_data_urls(html: str) -> Tuple[str, Dict[str, str]]:
-    mapping: Dict[str, str] = {}
-    counter = 1
+def replace_base64_data_urls(
+    text: str, mapping: Dict[str, str] | None = None
+) -> Tuple[str, Dict[str, str]]:
+    placeholder_mapping: Dict[str, str] = dict(mapping or {})
+    reverse_mapping = {data_url: placeholder for placeholder, data_url in placeholder_mapping.items()}
 
     def _replace(match: re.Match[str]) -> str:
-        nonlocal counter
-        placeholder = f"__IMG_BASE64_{counter}__"
-        counter += 1
-        mapping[placeholder] = match.group(0)
+        data_url = match.group(0)
+        existing_placeholder = reverse_mapping.get(data_url)
+        if existing_placeholder:
+            return existing_placeholder
+
+        placeholder = f"__IMG_BASE64_{len(reverse_mapping) + 1}__"
+        reverse_mapping[data_url] = placeholder
+        placeholder_mapping[placeholder] = data_url
         return placeholder
 
-    scrubbed_html = _BASE64_DATA_URL_PATTERN.sub(_replace, html)
-    return scrubbed_html, mapping
+    scrubbed_text = _BASE64_DATA_URL_PATTERN.sub(_replace, text)
+    return scrubbed_text, placeholder_mapping
 
 
 def restore_base64_placeholders(text: str, mapping: Dict[str, str]) -> str:
