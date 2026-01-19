@@ -61,13 +61,14 @@ async def stream_claude_response(
     api_key: str,
     callback: Callable[[str], Awaitable[None]],
     model_name: str,
+    temperature: float,
 ) -> Completion:
     start_time = time.time()
     client = AsyncAnthropic(api_key=api_key)
 
     # Base parameters
     max_tokens = 8192
-    temperature = 0.0
+    temperature = max(0.0, min(1.0, temperature))
 
     # Claude 3.7 Sonnet can support higher max tokens
     if model_name == "claude-3-7-sonnet-20250219":

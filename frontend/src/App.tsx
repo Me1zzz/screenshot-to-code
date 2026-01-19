@@ -75,6 +75,7 @@ function App() {
       engineeringOpenAiApiKey: null,
       engineeringOpenAiBaseURL: null,
       engineeringOpenAiModel: "gpt-4o-mini",
+      vlmTemperature: 0.2,
       editorTheme: EditorTheme.COBALT,
       generatedCodeConfig: Stack.HTML_TAILWIND,
       codeGenerationModel: CodeGenerationModel.CLAUDE_4_5_SONNET_2025_09_29,
@@ -138,6 +139,15 @@ function App() {
       }));
     }
   }, [settings.engineeringOpenAiModel, setSettings]);
+
+  useEffect(() => {
+    if (typeof settings.vlmTemperature !== "number") {
+      setSettings((prev) => ({
+        ...prev,
+        vlmTemperature: 0.2,
+      }));
+    }
+  }, [settings.vlmTemperature, setSettings]);
 
   // Functions
   const reset = () => {

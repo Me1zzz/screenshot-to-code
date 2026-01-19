@@ -224,6 +224,7 @@ class ExtractedParams:
     engineering_openai_api_key: str | None
     engineering_openai_base_url: str | None
     engineering_openai_model: str
+    vlm_temperature: float
     openai_api_key: str | None
     anthropic_api_key: str | None
     openai_base_url: str | None
@@ -313,6 +314,7 @@ class ParameterExtractionStage:
             "engineeringOpenAiBaseURL"
         ) or openai_base_url
         engineering_openai_model = params.get("engineeringOpenAiModel") or "gpt-4o-mini"
+        vlm_temperature = self._parse_temperature(params.get("vlmTemperature"))
 
         # Extract and validate generation type
         generation_type = params.get("generationType", "create")
@@ -344,6 +346,7 @@ class ParameterExtractionStage:
             engineering_openai_api_key=engineering_openai_api_key,
             engineering_openai_base_url=engineering_openai_base_url,
             engineering_openai_model=engineering_openai_model,
+            vlm_temperature=vlm_temperature,
             openai_api_key=openai_api_key,
             anthropic_api_key=anthropic_api_key,
             openai_base_url=openai_base_url,
@@ -367,6 +370,18 @@ class ParameterExtractionStage:
             return env_var
 
         return None
+
+    def _parse_temperature(self, value: Any) -> float:
+        default_temperature = 0.2
+        if value is None:
+            return default_temperature
+        try:
+            if isinstance(value, bool):
+                raise ValueError("Temperature cannot be boolean")
+            temperature = float(value)
+        except (TypeError, ValueError):
+            return default_temperature
+        return max(0.0, min(1.0, temperature))
 
 
 class ModelSelectionStage:
@@ -598,12 +613,14 @@ class ParallelGenerationStage:
         openai_base_url: str | None,
         anthropic_api_key: str | None,
         should_generate_images: bool,
+        vlm_temperature: float,
     ):
         self.send_message = send_message
         self.openai_api_key = openai_api_key
         self.openai_base_url = openai_base_url
         self.anthropic_api_key = anthropic_api_key
         self.should_generate_images = should_generate_images
+        self.vlm_temperature = vlm_temperature
 
     async def process_variants(
         self,
@@ -683,6 +700,7 @@ class ParallelGenerationStage:
                         api_key=GEMINI_API_KEY,
                         callback=lambda x, i=index: self._process_chunk(x, i),
                         model_name=model.value,
+                        temperature=self.vlm_temperature,
                     )
                 )
             elif model in ANTHROPIC_MODELS:
@@ -695,6 +713,7 @@ class ParallelGenerationStage:
                         api_key=self.anthropic_api_key,
                         callback=lambda x, i=index: self._process_chunk(x, i),
                         model_name=model.value,
+                        temperature=self.vlm_temperature,
                     )
                 )
 
@@ -719,6 +738,7 @@ class ParallelGenerationStage:
                 base_url=self.openai_base_url,
                 callback=lambda x: self._process_chunk(x, index),
                 model_name=model_name,
+                temperature=self.vlm_temperature,
             )
         except openai.AuthenticationError as e:
             print(f"[VARIANT {index + 1}] OpenAI Authentication failed", e)
@@ -835,6 +855,7 @@ class ParallelGenerationStage:
                 base_url=extracted_params.engineering_openai_base_url,
                 callback=lambda x: self._process_chunk(x, index),
                 model_name=extracted_params.engineering_openai_model,
+                temperature=extracted_params.vlm_temperature,
             )
             completion["code"] = restore_base64_placeholders(
                 completion["code"], mapping
@@ -1049,6 +1070,7 @@ class CodeGenerationMiddleware(Middleware):
                         openai_base_url=context.extracted_params.openai_base_url,
                         anthropic_api_key=context.extracted_params.anthropic_api_key,
                         should_generate_images=context.extracted_params.should_generate_images,
+                        vlm_temperature=context.extracted_params.vlm_temperature,
                     )
 
                     context.variant_completions = (

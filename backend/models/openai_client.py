@@ -12,6 +12,7 @@ async def stream_openai_response(
     base_url: str | None,
     callback: Callable[[str], Awaitable[None]],
     model_name: str,
+    temperature: float | None,
 ) -> Completion:
     start_time = time.time()
     client = AsyncOpenAI(api_key=api_key, base_url=base_url)
@@ -23,10 +24,9 @@ async def stream_openai_response(
         "timeout": 600,
     }
 
-    # O1 doesn't support streaming or temperature
-    if model_name not in ["o1-2024-12-17", "o4-mini-2025-04-16", "o3-2025-04-16"]:
-        params["temperature"] = 0
-        params["stream"] = True
+    if temperature is not None:
+        params["temperature"] = temperature
+    params["stream"] = True
 
     # 4.1 series
     if model_name in [
@@ -34,7 +34,8 @@ async def stream_openai_response(
         "gpt-4.1-mini-2025-04-14",
         "gpt-4.1-nano-2025-04-14",
     ]:
-        params["temperature"] = 0
+        if temperature is not None:
+            params["temperature"] = temperature
         params["stream"] = True
         params["max_tokens"] = 20000
 
