@@ -36,6 +36,16 @@ function SettingsDialog({ settings, setSettings }: Props) {
     }));
   };
 
+  const clampTemperature = (value: number) =>
+    Math.min(1, Math.max(0, value));
+
+  const handleTemperatureChange = (value: number) => {
+    setSettings((s) => ({
+      ...s,
+      vlmTemperature: clampTemperature(value),
+    }));
+  };
+
   return (
     <Dialog>
       <DialogTrigger>
@@ -209,6 +219,44 @@ function SettingsDialog({ settings, setSettings }: Props) {
                   }))
                 }
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="vlm-temperature">
+                <div>VLM 随机性</div>
+                <div className="font-light mt-1 text-xs leading-relaxed">
+                  数值越高，输出越有创造性（0-1）。
+                </div>
+              </Label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="vlm-temperature"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.vlmTemperature}
+                  onChange={(e) =>
+                    handleTemperatureChange(parseFloat(e.target.value))
+                  }
+                  className="flex-1"
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.vlmTemperature}
+                  onChange={(e) =>
+                    handleTemperatureChange(
+                      Number.isNaN(parseFloat(e.target.value))
+                        ? 0
+                        : parseFloat(e.target.value)
+                    )
+                  }
+                  className="w-20"
+                />
+              </div>
             </div>
           </div>
 

@@ -93,6 +93,7 @@ async def stream_gemini_response(
     api_key: str,
     callback: Callable[[str], Awaitable[None]],
     model_name: str,
+    temperature: float,
 ) -> Completion:
     """
     Stream a response from Gemini.
@@ -136,10 +137,12 @@ async def stream_gemini_response(
     client = genai.Client(api_key=api_key)
     full_response = ""
 
+    temperature = max(0.0, min(1.0, temperature))
+
     if model_name == Llm.GEMINI_2_5_FLASH_PREVIEW_05_20.value:
         # Gemini 2.5 Flash supports thinking budgets
         config = types.GenerateContentConfig(
-            temperature=0,
+            temperature=temperature,
             max_output_tokens=20000,
             system_instruction=system_prompt,
             thinking_config=types.ThinkingConfig(
@@ -149,7 +152,7 @@ async def stream_gemini_response(
     elif model_name == Llm.GEMINI_3_FLASH_PREVIEW.value:
         # Gemini 3 Flash uses thinking_level instead of thinking_budget
         config = types.GenerateContentConfig(
-            temperature=0,
+            temperature=temperature,
             max_output_tokens=30000,
             system_instruction=system_prompt,
             thinking_config=types.ThinkingConfig(thinking_level="minimal"),
@@ -157,14 +160,14 @@ async def stream_gemini_response(
     elif model_name == Llm.GEMINI_3_PRO_PREVIEW.value:
         # Gemini 3 Pro with low thinking
         config = types.GenerateContentConfig(
-            temperature=0,
+            temperature=temperature,
             max_output_tokens=30000,
             system_instruction=system_prompt,
             thinking_config=types.ThinkingConfig(thinking_level="low"),
         )
     else:
         config = types.GenerateContentConfig(
-            temperature=0,
+            temperature=temperature,
             max_output_tokens=8000,
             system_instruction=system_prompt,
         )

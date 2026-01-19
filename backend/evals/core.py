@@ -31,6 +31,7 @@ async def generate_code_core(
             api_key=ANTHROPIC_API_KEY,
             callback=lambda x: process_chunk(x),
             model_name=model.value,
+            temperature=0.2,
         )
     elif model in GEMINI_MODELS:
         if not GEMINI_API_KEY:
@@ -41,6 +42,7 @@ async def generate_code_core(
             api_key=GEMINI_API_KEY,
             callback=lambda x: process_chunk(x),
             model_name=model.value,
+            temperature=0.2,
         )
     else:
         if not OPENAI_API_KEY:
@@ -52,6 +54,7 @@ async def generate_code_core(
             base_url=None,
             callback=lambda x: process_chunk(x),
             model_name=model.value,
+            temperature=0.2,
         )
 
     return completion["code"]

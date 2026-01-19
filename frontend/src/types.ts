@@ -16,6 +16,7 @@ export interface Settings {
   engineeringOpenAiApiKey: string | null;
   engineeringOpenAiBaseURL: string | null;
   engineeringOpenAiModel: string;
+  vlmTemperature: number;
   editorTheme: EditorTheme;
   generatedCodeConfig: Stack;
   codeGenerationModel: CodeGenerationModel;
