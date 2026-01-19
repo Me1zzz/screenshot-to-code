@@ -95,6 +95,7 @@ class PipelineContext:
     variant_models: List[Llm] = field(default_factory=list)
     completions: List[str] = field(default_factory=list)
     variant_completions: Dict[int, str] = field(default_factory=dict)
+    base64_mapping: Dict[str, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -317,6 +318,11 @@ class ParameterExtractionStage:
             await self.throw_error(f"Invalid generation type: {generation_type}")
             raise ValueError(f"Invalid generation type: {generation_type}")
         generation_type = cast(Literal["create", "update"], generation_type)
+        if generation_type == "update":
+            include_engineering_variant = False
+            openai_api_key = engineering_openai_api_key
+            openai_base_url = engineering_openai_base_url
+            anthropic_api_key = None
 
         # Extract prompt content
         prompt = params.get("prompt", {"text": "", "images": []})
@@ -458,10 +464,10 @@ class PromptCreationStage:
     async def create_prompt(
         self,
         extracted_params: ExtractedParams,
-    ) -> tuple[List[ChatCompletionMessageParam], Dict[str, str]]:
+    ) -> tuple[List[ChatCompletionMessageParam], Dict[str, str], Dict[str, str]]:
         """Create prompt messages and return image cache"""
         try:
-            prompt_messages, image_cache = await create_prompt(
+            prompt_messages, image_cache, base64_mapping = await create_prompt(
                 stack=extracted_params.stack,
                 input_mode=extracted_params.input_mode,
                 generation_type=extracted_params.generation_type,
@@ -470,7 +476,7 @@ class PromptCreationStage:
                 is_imported_from_code=extracted_params.is_imported_from_code,
             )
 
-            return prompt_messages, image_cache
+            return prompt_messages, image_cache, base64_mapping
         except Exception:
             await self.throw_error(
                 "Error assembling prompt. Contact support at support@picoapps.xyz"
@@ -602,6 +608,7 @@ class ParallelGenerationStage:
         variant_models: List[Llm],
         prompt_messages: List[ChatCompletionMessageParam],
         image_cache: Dict[str, str],
+        base64_mapping: Dict[str, str],
         params: Dict[str, str],
         extracted_params: ExtractedParams,
     ) -> Dict[int, str]:
@@ -622,7 +629,12 @@ class ParallelGenerationStage:
         # Process each variant independently
         variant_processors = [
             self._process_variant_completion(
-                index, task, variant_models[index], image_cache, variant_completions
+                index,
+                task,
+                variant_models[index],
+                image_cache,
+                base64_mapping,
+                variant_completions,
             )
             for index, task in variant_tasks.items()
         ]
@@ -651,10 +663,14 @@ class ParallelGenerationStage:
                 if self.openai_api_key is None:
                     raise Exception("OpenAI API key is missing.")
 
+                model_name = model.value
+                if extracted_params.generation_type == "update":
+                    model_name = extracted_params.engineering_openai_model
+
                 tasks.append(
                     self._stream_openai_with_error_handling(
                         prompt_messages,
-                        model_name=model.value,
+                        model_name=model_name,
                         index=index,
                     )
                 )
@@ -861,11 +877,17 @@ class ParallelGenerationStage:
         task: asyncio.Task[Completion],
         model: Llm,
         image_cache: Dict[str, str],
+        base64_mapping: Dict[str, str],
         variant_completions: Dict[int, str],
     ):
         """Process a single variant completion including image generation"""
         try:
             completion = await task
+
+            if base64_mapping:
+                completion["code"] = restore_base64_placeholders(
+                    completion["code"], base64_mapping
+                )
 
             print(f"{model.value} completion took {completion['duration']:.2f} seconds")
             variant_completions[index] = completion["code"]
@@ -972,11 +994,11 @@ class PromptCreationMiddleware(Middleware):
     ) -> None:
         prompt_creator = PromptCreationStage(context.throw_error)
         assert context.extracted_params is not None
-        context.prompt_messages, context.image_cache = (
-            await prompt_creator.create_prompt(
-                context.extracted_params,
-            )
-        )
+        (
+            context.prompt_messages,
+            context.image_cache,
+            context.base64_mapping,
+        ) = await prompt_creator.create_prompt(context.extracted_params)
 
         await next_func()
 
@@ -1032,6 +1054,7 @@ class CodeGenerationMiddleware(Middleware):
                             variant_models=context.variant_models,
                             prompt_messages=context.prompt_messages,
                             image_cache=context.image_cache,
+                            base64_mapping=context.base64_mapping,
                             params=context.params,
                             extracted_params=context.extracted_params,
                         )

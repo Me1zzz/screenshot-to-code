@@ -97,7 +97,7 @@ class TestCreatePrompt:
 
         with patch("prompts.SYSTEM_PROMPTS", mock_system_prompts):
             # Call the function
-            messages, image_cache = await create_prompt(
+            messages, image_cache, base64_mapping = await create_prompt(
                 stack=self.TEST_STACK,
                 input_mode="image",
                 generation_type=params["generationType"],
@@ -150,14 +150,14 @@ class TestCreatePrompt:
             ],
         }
 
-        # Mock the system prompts and image cache function
+        # Mock the update system prompts and image cache function
         mock_system_prompts = {self.TEST_STACK: self.MOCK_SYSTEM_PROMPT}
 
-        with patch("prompts.SYSTEM_PROMPTS", mock_system_prompts), patch(
+        with patch("prompts.ENGINEERING_UPDATE_SYSTEM_PROMPTS", mock_system_prompts), patch(
             "prompts.create_alt_url_mapping", return_value={"mock": "cache"}
         ):
             # Call the function
-            messages, image_cache = await create_prompt(
+            messages, image_cache, base64_mapping = await create_prompt(
                 stack=self.TEST_STACK,
                 input_mode="image",
                 generation_type=params["generationType"],
@@ -182,14 +182,10 @@ class TestCreatePrompt:
                             },
                             {
                                 "type": "text",
-                                "text": "<CONTAINS:Generate code for a web page that looks exactly like this.>",
+                                "text": "<CONTAINS:Add a header>",
                             },
                         ],
                     },
-                    {"role": "assistant", "content": "<html>Initial code</html>"},
-                    {"role": "user", "content": "Make the background blue"},
-                    {"role": "assistant", "content": "<html>Updated code</html>"},
-                    {"role": "user", "content": "Add a header"},
                 ],
                 "image_cache": {"mock": "cache"},
             }
@@ -218,7 +214,7 @@ class TestCreatePrompt:
         
         with patch('prompts.TEXT_SYSTEM_PROMPTS', mock_text_system_prompts):
             # Call the function
-            messages, image_cache = await create_prompt(
+            messages, image_cache, base64_mapping = await create_prompt(
                 stack=self.TEST_STACK,
                 input_mode="text",
                 generation_type=params["generationType"],
@@ -265,15 +261,15 @@ class TestCreatePrompt:
             ]
         }
         
-        # Mock the text system prompts and image cache function
-        mock_text_system_prompts: Dict[str, str] = {
-            self.TEST_STACK: "Mock Text System Prompt"
+        # Mock the update system prompts and image cache function
+        mock_update_prompts: Dict[str, str] = {
+            self.TEST_STACK: "Mock Update System Prompt"
         }
         
-        with patch('prompts.TEXT_SYSTEM_PROMPTS', mock_text_system_prompts), \
+        with patch('prompts.ENGINEERING_UPDATE_SYSTEM_PROMPTS', mock_update_prompts), \
              patch('prompts.create_alt_url_mapping', return_value={"text": "cache"}):
             # Call the function
-            messages, image_cache = await create_prompt(
+            messages, image_cache, base64_mapping = await create_prompt(
                 stack=self.TEST_STACK,
                 input_mode="text",
                 generation_type=params["generationType"],
@@ -287,28 +283,12 @@ class TestCreatePrompt:
                 "messages": [
                     {
                         "role": "system",
-                        "content": "Mock Text System Prompt"
+                        "content": "Mock Update System Prompt"
                     },
                     {
                         "role": "user",
-                        "content": f"Generate UI for {text_description}"
+                        "content": "<CONTAINS:Now add a navigation menu>"
                     },
-                    {
-                        "role": "assistant",
-                        "content": "<html>Initial dashboard</html>"
-                    },
-                    {
-                        "role": "user",
-                        "content": "Add a sidebar"
-                    },
-                    {
-                        "role": "assistant",
-                        "content": "<html>Dashboard with sidebar</html>"
-                    },
-                    {
-                        "role": "user",
-                        "content": "Now add a navigation menu"
-                    }
                 ],
                 "image_cache": {"text": "cache"}
             }
@@ -363,7 +343,7 @@ class TestCreatePrompt:
         
         with patch('prompts.assemble_claude_prompt_video', return_value=mock_video_messages):
             # Call the function
-            messages, image_cache = await create_prompt(
+            messages, image_cache, base64_mapping = await create_prompt(
                 stack=self.TEST_STACK,
                 input_mode="video",
                 generation_type=params["generationType"],
@@ -421,18 +401,18 @@ class TestCreatePrompt:
             "generationType": "update",
             "history": [
                 {"text": "<html>Initial code</html>", "images": []},
+                {"text": "<html>Code with button</html>", "images": []},
                 {"text": "Add a button", "images": [reference_image_url]},
-                {"text": "<html>Code with button</html>", "images": []}
-            ]
+            ],
         }
 
-        # Mock the system prompts and image cache function
+        # Mock the update system prompts and image cache function
         mock_system_prompts: Dict[str, str] = {self.TEST_STACK: self.MOCK_SYSTEM_PROMPT}
 
-        with patch("prompts.SYSTEM_PROMPTS", mock_system_prompts), \
+        with patch("prompts.ENGINEERING_UPDATE_SYSTEM_PROMPTS", mock_system_prompts), \
              patch("prompts.create_alt_url_mapping", return_value={"mock": "cache"}):
             # Call the function
-            messages, image_cache = await create_prompt(
+            messages, image_cache, base64_mapping = await create_prompt(
                 stack=self.TEST_STACK,
                 input_mode="image",
                 generation_type=params["generationType"],
@@ -451,34 +431,16 @@ class TestCreatePrompt:
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": self.TEST_IMAGE_URL,
-                                    "detail": "high",
-                                },
-                            },
-                            {
-                                "type": "text",
-                                "text": "<CONTAINS:Generate code for a web page that looks exactly like this.>",
-                            },
-                        ],
-                    },
-                    {"role": "assistant", "content": "<html>Initial code</html>"},
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {
                                     "url": reference_image_url,
                                     "detail": "high",
                                 },
                             },
                             {
                                 "type": "text",
-                                "text": "Add a button",
+                                "text": "<CONTAINS:Add a button>",
                             },
                         ],
                     },
-                    {"role": "assistant", "content": "<html>Code with button</html>"},
                 ],
                 "image_cache": {"mock": "cache"},
             }
@@ -498,18 +460,18 @@ class TestCreatePrompt:
             "generationType": "update",
             "history": [
                 {"text": "<html>Initial code</html>", "images": []},
+                {"text": "<html>Styled code</html>", "images": []},
                 {"text": "Style like these examples", "images": [example1_url, example2_url]},
-                {"text": "<html>Styled code</html>", "images": []}
-            ]
+            ],
         }
 
-        # Mock the system prompts and image cache function
+        # Mock the update system prompts and image cache function
         mock_system_prompts: Dict[str, str] = {self.TEST_STACK: self.MOCK_SYSTEM_PROMPT}
 
-        with patch("prompts.SYSTEM_PROMPTS", mock_system_prompts), \
+        with patch("prompts.ENGINEERING_UPDATE_SYSTEM_PROMPTS", mock_system_prompts), \
              patch("prompts.create_alt_url_mapping", return_value={"mock": "cache"}):
             # Call the function
-            messages, image_cache = await create_prompt(
+            messages, image_cache, base64_mapping = await create_prompt(
                 stack=self.TEST_STACK,
                 input_mode="image",
                 generation_type=params["generationType"],
@@ -522,23 +484,6 @@ class TestCreatePrompt:
             expected: ExpectedResult = {
                 "messages": [
                     {"role": "system", "content": self.MOCK_SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": self.TEST_IMAGE_URL,
-                                    "detail": "high",
-                                },
-                            },
-                            {
-                                "type": "text",
-                                "text": "<CONTAINS:Generate code for a web page that looks exactly like this.>",
-                            },
-                        ],
-                    },
-                    {"role": "assistant", "content": "<html>Initial code</html>"},
                     {
                         "role": "user",
                         "content": [
@@ -558,11 +503,10 @@ class TestCreatePrompt:
                             },
                             {
                                 "type": "text",
-                                "text": "Style like these examples",
+                                "text": "<CONTAINS:Style like these examples>",
                             },
                         ],
                     },
-                    {"role": "assistant", "content": "<html>Styled code</html>"},
                 ],
                 "image_cache": {"mock": "cache"},
             }
@@ -580,18 +524,18 @@ class TestCreatePrompt:
             "generationType": "update",
             "history": [
                 {"text": "<html>Initial code</html>", "images": []},
+                {"text": "<html>Blue code</html>", "images": []},
                 {"text": "Make it blue", "images": []},  # Explicit empty array
-                {"text": "<html>Blue code</html>", "images": []}
-            ]
+            ],
         }
 
-        # Mock the system prompts and image cache function
+        # Mock the update system prompts and image cache function
         mock_system_prompts: Dict[str, str] = {self.TEST_STACK: self.MOCK_SYSTEM_PROMPT}
 
-        with patch("prompts.SYSTEM_PROMPTS", mock_system_prompts), \
+        with patch("prompts.ENGINEERING_UPDATE_SYSTEM_PROMPTS", mock_system_prompts), \
              patch("prompts.create_alt_url_mapping", return_value={}):
             # Call the function
-            messages, image_cache = await create_prompt(
+            messages, image_cache, base64_mapping = await create_prompt(
                 stack=self.TEST_STACK,
                 input_mode="image",
                 generation_type=params["generationType"],
@@ -606,23 +550,8 @@ class TestCreatePrompt:
                     {"role": "system", "content": self.MOCK_SYSTEM_PROMPT},
                     {
                         "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": self.TEST_IMAGE_URL,
-                                    "detail": "high",
-                                },
-                            },
-                            {
-                                "type": "text",
-                                "text": "<CONTAINS:Generate code for a web page that looks exactly like this.>",
-                            },
-                        ],
+                        "content": "<CONTAINS:Make it blue>",
                     },
-                    {"role": "assistant", "content": "<html>Initial code</html>"},
-                    {"role": "user", "content": "Make it blue"},  # Text-only message
-                    {"role": "assistant", "content": "<html>Blue code</html>"},
                 ],
                 "image_cache": {},
             }
@@ -641,19 +570,21 @@ class TestCreatePrompt:
             "generationType": "update",
             "history": [
                 {"text": "<html>Original imported code</html>", "images": []},
+                {"text": "<html>Updated code</html>", "images": []},
                 {"text": "Update with this reference", "images": [ref_image_url]},
-                {"text": "<html>Updated code</html>", "images": []}
-            ]
+            ],
         }
 
-        # Mock the imported code system prompts
-        mock_imported_prompts: Dict[str, str] = {
-            self.TEST_STACK: "Mock Imported Code System Prompt"
+        # Mock the update system prompts
+        mock_update_prompts: Dict[str, str] = {
+            self.TEST_STACK: "Mock Update System Prompt"
         }
 
-        with patch("prompts.IMPORTED_CODE_SYSTEM_PROMPTS", mock_imported_prompts):
+        with patch("prompts.ENGINEERING_UPDATE_SYSTEM_PROMPTS", mock_update_prompts), patch(
+            "prompts.create_alt_url_mapping", return_value={"mock": "cache"}
+        ):
             # Call the function
-            messages, image_cache = await create_prompt(
+            messages, image_cache, base64_mapping = await create_prompt(
                 stack=self.TEST_STACK,
                 input_mode="image",
                 generation_type=params["generationType"],
@@ -667,7 +598,7 @@ class TestCreatePrompt:
                 "messages": [
                     {
                         "role": "system",
-                        "content": "Mock Imported Code System Prompt\n Here is the code of the app: <html>Original imported code</html>",
+                        "content": "Mock Update System Prompt",
                     },
                     {
                         "role": "user",
@@ -681,13 +612,12 @@ class TestCreatePrompt:
                             },
                             {
                                 "type": "text",
-                                "text": "Update with this reference",
+                                "text": "<CONTAINS:Update with this reference>",
                             },
                         ],
                     },
-                    {"role": "assistant", "content": "<html>Updated code</html>"},
                 ],
-                "image_cache": {},
+                "image_cache": {"mock": "cache"},
             }
 
             # Assert the structure matches
