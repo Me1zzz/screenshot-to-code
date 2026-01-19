@@ -182,6 +182,8 @@ class WebSocketCommunicator:
             print(f"Error (variant {variantIndex + 1}): {value}")
         elif type == "status":
             print(f"Status (variant {variantIndex + 1}): {value}")
+        elif type == "chunk":
+            print(value, end="", flush=True)
         elif type == "variantComplete":
             print(f"Variant {variantIndex + 1} complete")
         elif type == "variantError":
