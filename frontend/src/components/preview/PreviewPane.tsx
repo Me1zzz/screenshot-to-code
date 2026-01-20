@@ -37,7 +37,7 @@ function PreviewPane({ doUpdate, reset, settings }: Props) {
 
   return (
     <div className="ml-4">
-      <Tabs defaultValue="desktop">
+      <Tabs defaultValue="mobile">
         <div className="flex justify-between mr-8 mb-4">
           <div className="flex items-center gap-x-2">
             {appState === AppState.CODE_READY && (
@@ -61,11 +61,11 @@ function PreviewPane({ doUpdate, reset, settings }: Props) {
           </div>
           <div className="flex items-center">
             <TabsList>
-              <TabsTrigger value="desktop" className="flex gap-x-2">
-                <FaDesktop /> 桌面
-              </TabsTrigger>
               <TabsTrigger value="mobile" className="flex gap-x-2">
                 <FaMobile /> 移动端
+              </TabsTrigger>
+              <TabsTrigger value="desktop" className="flex gap-x-2">
+                <FaDesktop /> 桌面
               </TabsTrigger>
               <TabsTrigger value="code" className="flex gap-x-2">
                 <FaCode />

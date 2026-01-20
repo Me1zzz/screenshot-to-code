@@ -273,10 +273,7 @@ function ImageUpload({
 
           <div className="flex items-center justify-between w-full max-w-lg gap-4 rounded-md border border-gray-200 px-4 py-3">
             <Label htmlFor="deep-thinking-upload" className="space-y-1">
-              <div>工程版深度思考</div>
-              <div className="font-light text-xs">
-                对工程变体运行 VLM 精炼步骤。
-              </div>
+              <div>深度思考</div>
             </Label>
             <Switch
               id="deep-thinking-upload"
