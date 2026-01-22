@@ -20,13 +20,13 @@ type WebSocketResponse = {
     | "variantComplete"
     | "variantError"
     | "variantCount";
-  value: string;
+  value: string | { html: string; arkui?: string };
   variantIndex: number;
 };
 
 interface CodeGenerationCallbacks {
   onChange: (chunk: string, variantIndex: number) => void;
-  onSetCode: (code: string, variantIndex: number) => void;
+  onSetCode: (code: string, variantIndex: number, arkuiCode?: string) => void;
   onStatusUpdate: (status: string, variantIndex: number) => void;
   onVariantComplete: (variantIndex: number) => void;
   onVariantError: (variantIndex: number, error: string) => void;
@@ -130,6 +130,9 @@ export function generateCode(
   ws.addEventListener("message", async (event: MessageEvent) => {
     const response = JSON.parse(event.data) as WebSocketResponse;
     if (response.type === "chunk") {
+      if (typeof response.value !== "string") {
+        return;
+      }
       const extracted = extractHtmlFromChunk(
         htmlStreamStates,
         response.variantIndex,
@@ -139,17 +142,37 @@ export function generateCode(
         callbacks.onChange(extracted, response.variantIndex);
       }
     } else if (response.type === "status") {
+      if (typeof response.value !== "string") {
+        return;
+      }
       callbacks.onStatusUpdate(response.value, response.variantIndex);
     } else if (response.type === "setCode") {
       resetHtmlStreamState(htmlStreamStates, response.variantIndex);
-      callbacks.onSetCode(response.value, response.variantIndex);
+      if (typeof response.value === "string") {
+        callbacks.onSetCode(response.value, response.variantIndex);
+      } else {
+        callbacks.onSetCode(
+          response.value.html,
+          response.variantIndex,
+          response.value.arkui
+        );
+      }
     } else if (response.type === "variantComplete") {
       callbacks.onVariantComplete(response.variantIndex);
     } else if (response.type === "variantError") {
+      if (typeof response.value !== "string") {
+        return;
+      }
       callbacks.onVariantError(response.variantIndex, response.value);
     } else if (response.type === "variantCount") {
+      if (typeof response.value !== "string") {
+        return;
+      }
       callbacks.onVariantCount(parseInt(response.value));
     } else if (response.type === "error") {
+      if (typeof response.value !== "string") {
+        return;
+      }
       console.error("Error generating code", response.value);
       toast.error(response.value);
     }

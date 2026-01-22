@@ -26,9 +26,11 @@ function PreviewPane({ doUpdate, reset, settings }: Props) {
   const { inputMode, head, commits } = useProjectStore();
 
   const currentCommit = head && commits[head] ? commits[head] : "";
-  const currentCode = currentCommit
-    ? currentCommit.variants[currentCommit.selectedVariantIndex].code
-    : "";
+  const currentVariant = currentCommit
+    ? currentCommit.variants[currentCommit.selectedVariantIndex]
+    : null;
+  const currentCode = currentVariant?.code ?? "";
+  const currentArkuiCode = currentVariant?.arkuiCode ?? "";
 
   const previewCode =
     inputMode === "video" && appState === AppState.CODING
@@ -69,7 +71,11 @@ function PreviewPane({ doUpdate, reset, settings }: Props) {
               </TabsTrigger>
               <TabsTrigger value="code" className="flex gap-x-2">
                 <FaCode />
-                代码
+                html代码
+              </TabsTrigger>
+              <TabsTrigger value="arkui" className="flex gap-x-2">
+                <FaCode />
+                arkui代码
               </TabsTrigger>
             </TabsList>
           </div>
@@ -93,6 +99,14 @@ function PreviewPane({ doUpdate, reset, settings }: Props) {
             code={previewCode} 
             setCode={() => {}} 
             settings={settings} 
+          />
+        </TabsContent>
+        <TabsContent value="arkui">
+          <CodeTab
+            code={currentArkuiCode}
+            setCode={() => {}}
+            settings={settings}
+            showCodepen={false}
           />
         </TabsContent>
       </Tabs>

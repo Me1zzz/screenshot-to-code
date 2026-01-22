@@ -173,7 +173,7 @@ class WebSocketCommunicator:
     async def send_message(
         self,
         type: MessageType,
-        value: str,
+        value: Any,
         variantIndex: int,
     ) -> None:
         """Send a message to the client with debug logging"""
@@ -506,7 +506,7 @@ class MockResponseStage:
 
     def __init__(
         self,
-        send_message: Callable[[MessageType, str, int], Coroutine[Any, Any, None]],
+        send_message: Callable[[MessageType, Any, int], Coroutine[Any, Any, None]],
     ):
         self.send_message = send_message
 
@@ -536,7 +536,7 @@ class VideoGenerationStage:
 
     def __init__(
         self,
-        send_message: Callable[[MessageType, str, int], Coroutine[Any, Any, None]],
+        send_message: Callable[[MessageType, Any, int], Coroutine[Any, Any, None]],
         throw_error: Callable[[str], Coroutine[Any, Any, None]],
     ):
         self.send_message = send_message
@@ -608,7 +608,7 @@ class ParallelGenerationStage:
 
     def __init__(
         self,
-        send_message: Callable[[MessageType, str, int], Coroutine[Any, Any, None]],
+        send_message: Callable[[MessageType, Any, int], Coroutine[Any, Any, None]],
         openai_api_key: str | None,
         openai_base_url: str | None,
         anthropic_api_key: str | None,
@@ -819,7 +819,7 @@ class ParallelGenerationStage:
         index: int,
     ) -> Completion:
         start_time = time.perf_counter()
-        html_output = generate_engineered_html(
+        html_output, arkui_output = generate_engineered_html(
             stack=extracted_params.stack,
             input_mode=extracted_params.input_mode,
             generation_type=extracted_params.generation_type,
@@ -829,14 +829,16 @@ class ParallelGenerationStage:
             openai_base_url=extracted_params.engineering_openai_base_url,
             openai_model=extracted_params.engineering_openai_model,
         )
+        if extracted_params.generation_type == "update":
+            arkui_output = ""
 
         if not extracted_params.is_deep_thinking_enabled:
             duration = time.perf_counter() - start_time
-            return {"duration": duration, "code": html_output}
+            return {"duration": duration, "code": html_output, "arkui": arkui_output}
 
         if not extracted_params.engineering_openai_api_key:
             duration = time.perf_counter() - start_time
-            return {"duration": duration, "code": html_output}
+            return {"duration": duration, "code": html_output, "arkui": arkui_output}
 
         scrubbed_html, mapping = replace_base64_data_urls(html_output)
         prompt_messages = assemble_engineering_refinement_prompt(
@@ -860,6 +862,7 @@ class ParallelGenerationStage:
             completion["code"] = restore_base64_placeholders(
                 completion["code"], mapping
             )
+            completion["arkui"] = arkui_output
             return completion
         except openai.AuthenticationError as e:
             print(f"[VARIANT {index + 1}] Engineering OpenAI Authentication failed", e)
@@ -928,8 +931,13 @@ class ParallelGenerationStage:
                 # Extract HTML content
                 processed_html = extract_html_content(processed_html)
 
-                # Send the complete variant back to the client
-                await self.send_message("setCode", processed_html, index)
+                arkui_output = completion.get("arkui")
+                if arkui_output is not None:
+                    payload = {"html": processed_html, "arkui": arkui_output}
+                    await self.send_message("setCode", payload, index)
+                else:
+                    # Send the complete variant back to the client
+                    await self.send_message("setCode", processed_html, index)
                 await self.send_message(
                     "variantComplete",
                     "Variant generation complete",

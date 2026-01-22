@@ -4,6 +4,7 @@ export type VariantStatus = "generating" | "complete" | "cancelled" | "error";
 
 export type Variant = {
   code: string;
+  arkuiCode?: string;
   status?: VariantStatus;
   errorMessage?: string;
 };

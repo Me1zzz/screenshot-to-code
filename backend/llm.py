@@ -33,9 +33,10 @@ class Llm(Enum):
     ENGINEERING = "engineering"
 
 
-class Completion(TypedDict):
+class Completion(TypedDict, total=False):
     duration: float
     code: str
+    arkui: str
 
 
 # Explicitly map each model to the provider backing it.  This keeps provider
