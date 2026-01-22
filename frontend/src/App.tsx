@@ -43,6 +43,7 @@ function App() {
     setHead,
     appendCommitCode,
     setCommitCode,
+    setCommitArkuiCode,
     resetCommits,
     resetHead,
     updateVariantStatus,
@@ -226,10 +227,17 @@ function App() {
 
     // Create variants dynamically - start with 4 to handle most cases
     // Backend will use however many it needs (typically 3)
+    const previousCommit = head ? commits[head] : null;
     const baseCommitObject = {
       variants: Array(4)
         .fill(null)
-        .map(() => ({ code: "" })),
+        .map((_, index) => ({
+          code: "",
+          arkuiCode:
+            params.generationType === "update"
+              ? previousCommit?.variants[index]?.arkuiCode ?? ""
+              : "",
+        })),
     };
 
     const commitInputObject =
@@ -258,8 +266,11 @@ function App() {
       onChange: (token, variantIndex) => {
         appendCommitCode(commit.hash, variantIndex, token);
       },
-      onSetCode: (code, variantIndex) => {
+      onSetCode: (code, variantIndex, arkuiCode) => {
         setCommitCode(commit.hash, variantIndex, code);
+        if (arkuiCode && arkuiCode.length > 0) {
+          setCommitArkuiCode(commit.hash, variantIndex, arkuiCode);
+        }
       },
       onStatusUpdate: (line, variantIndex) =>
         appendExecutionConsole(variantIndex, line),
@@ -401,7 +412,7 @@ function App() {
     const commit = createCommit({
       type: "code_create",
       parentHash: null,
-      variants: [{ code }],
+      variants: [{ code, arkuiCode: "" }],
       inputs: null,
     });
     addCommit(commit);

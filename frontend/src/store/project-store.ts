@@ -27,6 +27,11 @@ interface ProjectStore {
     code: string
   ) => void;
   setCommitCode: (hash: CommitHash, numVariant: number, code: string) => void;
+  setCommitArkuiCode: (
+    hash: CommitHash,
+    numVariant: number,
+    arkuiCode: string
+  ) => void;
   updateSelectedVariantIndex: (hash: CommitHash, index: number) => void;
   updateVariantStatus: (
     hash: CommitHash,
@@ -131,6 +136,25 @@ export const useProjectStore = create<ProjectStore>((set) => ({
         },
       };
     }),
+  setCommitArkuiCode: (hash: CommitHash, numVariant: number, arkuiCode: string) =>
+    set((state) => {
+      const commit = state.commits[hash];
+      // Don't update if the commit is already committed
+      if (commit.isCommitted) {
+        throw new Error("Attempted to set ArkUI code of a committed commit");
+      }
+      return {
+        commits: {
+          ...state.commits,
+          [hash]: {
+            ...commit,
+            variants: commit.variants.map((variant, index) =>
+              index === numVariant ? { ...variant, arkuiCode } : variant
+            ),
+          },
+        },
+      };
+    }),
   updateSelectedVariantIndex: (hash: CommitHash, index: number) =>
     set((state) => {
       const commit = state.commits[hash];
@@ -185,7 +209,11 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       // Resize variants array to match backend count
       const currentVariants = commit.variants;
       const newVariants = Array(count).fill(null).map((_, index) => 
-        currentVariants[index] || { code: "", status: "generating" as VariantStatus }
+        currentVariants[index] || {
+          code: "",
+          arkuiCode: "",
+          status: "generating" as VariantStatus,
+        }
       );
 
       return {

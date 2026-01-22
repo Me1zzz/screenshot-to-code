@@ -10,9 +10,10 @@ interface Props {
   code: string;
   setCode: React.Dispatch<React.SetStateAction<string>>;
   settings: Settings;
+  showCodepen?: boolean;
 }
 
-function CodeTab({ code, setCode, settings }: Props) {
+function CodeTab({ code, setCode, settings, showCodepen = true }: Props) {
   const copyCode = useCallback(() => {
     copy(code);
     toast.success("已复制到剪贴板");
@@ -63,17 +64,19 @@ function CodeTab({ code, setCode, settings }: Props) {
         >
           复制代码 <FaCopy className="ml-2" />
         </span>
-        <Button
-          onClick={doOpenInCodepenio}
-          className="bg-gray-100 text-black ml-2 py-2 px-4 border border-black rounded-md hover:bg-gray-400 focus:outline-none"
-        >
-          在 CodePen 打开{" "}
-          <img
-            src="https://assets.codepen.io/t-1/codepen-logo.svg"
-            alt="codepen.io"
-            className="h-4 ml-1"
-          />
-        </Button>
+        {showCodepen && (
+          <Button
+            onClick={doOpenInCodepenio}
+            className="bg-gray-100 text-black ml-2 py-2 px-4 border border-black rounded-md hover:bg-gray-400 focus:outline-none"
+          >
+            在 CodePen 打开{" "}
+            <img
+              src="https://assets.codepen.io/t-1/codepen-logo.svg"
+              alt="codepen.io"
+              className="h-4 ml-1"
+            />
+          </Button>
+        )}
       </div>
       <CodeMirror
         code={code}

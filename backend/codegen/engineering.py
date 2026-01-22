@@ -216,7 +216,7 @@ def generate_engineered_html(
     openai_api_key: str | None = None,
     openai_base_url: str | None = None,
     openai_model: str | None = None,
-) -> str:
+) -> tuple[str, str]:
     instruction = _resolve_instruction_text(generation_type, prompt, history)
     safe_instruction = html.escape(instruction) if instruction else ""
     title = "Engineering Generated Layout"
@@ -227,7 +227,9 @@ def generate_engineered_html(
     )
     image_url = _resolve_reference_image(prompt) if input_mode != "text" else None
 
-    if stack == "html_tailwind":
-        return _build_tailwind_html(title, description, image_url)
+    arkui_output = "<!-- ArkUI code placeholder -->"
 
-    return _build_html_css(title, description, image_url)
+    if stack == "html_tailwind":
+        return _build_tailwind_html(title, description, image_url), arkui_output
+
+    return _build_html_css(title, description, image_url), arkui_output
