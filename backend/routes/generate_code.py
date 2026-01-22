@@ -7,6 +7,7 @@ import time
 from fastapi import APIRouter, WebSocket
 import openai
 from codegen.engineering import generate_engineered_html
+from codegen.block_updates import BlockUpdateStreamProcessor
 from codegen.utils import (
     extract_html_content,
     replace_base64_data_urls,
@@ -221,6 +222,7 @@ class ExtractedParams:
     should_generate_images: bool
     is_engineering_variant_enabled: bool
     is_deep_thinking_enabled: bool
+    is_block_update_enabled: bool
     engineering_openai_api_key: str | None
     engineering_openai_base_url: str | None
     engineering_openai_model: str
@@ -285,6 +287,16 @@ class ParameterExtractionStage:
                 str(deep_thinking_param).lower() in ["true", "1", "yes"]
             )
 
+        block_update_param = params.get("isBlockUpdateEnabled")
+        if block_update_param is None:
+            is_block_update_enabled = False
+        elif isinstance(block_update_param, bool):
+            is_block_update_enabled = block_update_param
+        else:
+            is_block_update_enabled = (
+                str(block_update_param).lower() in ["true", "1", "yes"]
+            )
+
         openai_api_key = self._get_from_settings_dialog_or_env(
             params, "openAiApiKey", OPENAI_API_KEY
         )
@@ -343,6 +355,7 @@ class ParameterExtractionStage:
             should_generate_images=should_generate_images,
             is_engineering_variant_enabled=include_engineering_variant,
             is_deep_thinking_enabled=is_deep_thinking_enabled,
+            is_block_update_enabled=is_block_update_enabled,
             engineering_openai_api_key=engineering_openai_api_key,
             engineering_openai_base_url=engineering_openai_base_url,
             engineering_openai_model=engineering_openai_model,
@@ -491,6 +504,7 @@ class PromptCreationStage:
                 prompt=extracted_params.prompt,
                 history=extracted_params.history,
                 is_imported_from_code=extracted_params.is_imported_from_code,
+                is_block_update_enabled=extracted_params.is_block_update_enabled,
             )
 
             return prompt_messages, image_cache, base64_mapping
@@ -621,6 +635,9 @@ class ParallelGenerationStage:
         self.anthropic_api_key = anthropic_api_key
         self.should_generate_images = should_generate_images
         self.vlm_temperature = vlm_temperature
+        self._block_update_processors: dict[int, BlockUpdateStreamProcessor] = {}
+        self._block_update_enabled = False
+        self._block_update_base_html = ""
 
     async def process_variants(
         self,
@@ -632,6 +649,18 @@ class ParallelGenerationStage:
         extracted_params: ExtractedParams,
     ) -> Dict[int, str]:
         """Process all variants in parallel and return completions"""
+        self._block_update_processors = {}
+        self._block_update_enabled = (
+            extracted_params.generation_type == "update"
+            and extracted_params.is_block_update_enabled
+        )
+        if self._block_update_enabled:
+            self._block_update_base_html = (
+                extracted_params.history[-2]["text"]
+                if len(extracted_params.history) >= 2
+                else ""
+            )
+
         tasks = self._create_generation_tasks(
             variant_models, prompt_messages, params, extracted_params
         )
@@ -686,11 +715,19 @@ class ParallelGenerationStage:
                 if extracted_params.generation_type == "update":
                     model_name = extracted_params.engineering_openai_model
 
+                block_processor = None
+                if self._block_update_enabled:
+                    block_processor = BlockUpdateStreamProcessor(
+                        self._block_update_base_html,
+                        lambda delta, i=index: self.send_message("chunk", delta, i),
+                    )
+                    self._block_update_processors[index] = block_processor
                 tasks.append(
                     self._stream_openai_with_error_handling(
                         prompt_messages,
                         model_name=model_name,
                         index=index,
+                        block_processor=block_processor,
                     )
                 )
             elif GEMINI_API_KEY and model in GEMINI_MODELS:
@@ -723,23 +760,43 @@ class ParallelGenerationStage:
         """Process streaming chunks"""
         await self.send_message("chunk", content, variant_index)
 
+    async def _process_block_update_chunk(
+        self,
+        content: str,
+        processor: BlockUpdateStreamProcessor,
+    ) -> None:
+        print(content, end="", flush=True)
+        await processor.process_chunk(content)
+
     async def _stream_openai_with_error_handling(
         self,
         prompt_messages: List[ChatCompletionMessageParam],
         model_name: str,
         index: int,
+        block_processor: BlockUpdateStreamProcessor | None = None,
     ) -> Completion:
         """Wrap OpenAI streaming with specific error handling"""
         try:
             assert self.openai_api_key is not None
-            return await stream_openai_response(
+            if block_processor:
+                callback = lambda x: self._process_block_update_chunk(
+                    x, block_processor
+                )
+            else:
+                callback = lambda x: self._process_chunk(x, index)
+            completion = await stream_openai_response(
                 prompt_messages,
                 api_key=self.openai_api_key,
                 base_url=self.openai_base_url,
-                callback=lambda x: self._process_chunk(x, index),
+                callback=callback,
                 model_name=model_name,
                 temperature=self.vlm_temperature,
             )
+            if block_processor:
+                if block_processor.applied_ops == 0 and completion.get("code"):
+                    await block_processor.process_full_response(completion["code"])
+                completion["code"] = block_processor.current_html
+            return completion
         except openai.AuthenticationError as e:
             print(f"[VARIANT {index + 1}] OpenAI Authentication failed", e)
             error_message = (
@@ -848,17 +905,35 @@ class ParallelGenerationStage:
             prompt=extracted_params.prompt,
             history=extracted_params.history,
             engineered_html=scrubbed_html,
+            is_block_update_enabled=extracted_params.is_block_update_enabled,
         )
 
         try:
+            block_processor = None
+            if extracted_params.is_block_update_enabled:
+                block_processor = BlockUpdateStreamProcessor(
+                    html_output,
+                    lambda delta, i=index: self.send_message("chunk", delta, i),
+                )
+                async def process_block_update_chunk(content: str) -> None:
+                    print(content, end="", flush=True)
+                    await block_processor.process_chunk(content)
             completion = await stream_openai_response(
                 prompt_messages,
                 api_key=extracted_params.engineering_openai_api_key,
                 base_url=extracted_params.engineering_openai_base_url,
-                callback=lambda x: self._process_chunk(x, index),
+                callback=(
+                    process_block_update_chunk
+                    if block_processor
+                    else lambda x: self._process_chunk(x, index)
+                ),
                 model_name=extracted_params.engineering_openai_model,
                 temperature=extracted_params.vlm_temperature,
             )
+            if block_processor:
+                if block_processor.applied_ops == 0 and completion.get("code"):
+                    await block_processor.process_full_response(completion["code"])
+                completion["code"] = block_processor.current_html
             completion["code"] = restore_base64_placeholders(
                 completion["code"], mapping
             )

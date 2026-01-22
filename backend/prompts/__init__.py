@@ -5,7 +5,10 @@ from custom_types import InputMode
 from codegen.utils import replace_base64_data_urls
 from image_generation.core import create_alt_url_mapping
 from prompts.imported_code_prompts import IMPORTED_CODE_SYSTEM_PROMPTS
-from prompts.engineering_update_prompts import ENGINEERING_UPDATE_SYSTEM_PROMPTS
+from prompts.engineering_update_prompts import (
+    BLOCK_UPDATE_SYSTEM_SUFFIX,
+    ENGINEERING_UPDATE_SYSTEM_PROMPTS,
+)
 from prompts.screenshot_system_prompts import SYSTEM_PROMPTS
 from prompts.text_prompts import SYSTEM_PROMPTS as TEXT_SYSTEM_PROMPTS
 from prompts.types import Stack, PromptContent
@@ -28,6 +31,7 @@ async def create_prompt(
     prompt: PromptContent,
     history: list[dict[str, Any]],
     is_imported_from_code: bool,
+    is_block_update_enabled: bool = False,
 ) -> tuple[list[ChatCompletionMessageParam], dict[str, str], dict[str, str]]:
 
     image_cache: dict[str, str] = {}
@@ -44,6 +48,7 @@ async def create_prompt(
             update_instruction=update_instruction,
             update_images=update_images,
             current_html=current_html,
+            is_block_update_enabled=is_block_update_enabled,
         )
         if current_html:
             image_cache = create_alt_url_mapping(current_html)
@@ -201,6 +206,7 @@ def assemble_engineering_update_prompt(
     update_instruction: str,
     update_images: list[str],
     current_html: str,
+    is_block_update_enabled: bool = False,
 ) -> tuple[list[ChatCompletionMessageParam], dict[str, str]]:
     system_content = ENGINEERING_UPDATE_SYSTEM_PROMPTS[stack]
     prompt_images = prompt.get("images", [])
@@ -221,6 +227,9 @@ def assemble_engineering_update_prompt(
         else ""
     )
     template_label = "SVG" if stack == "svg" else "HTML"
+
+    if is_block_update_enabled:
+        system_content = f"{system_content}\n\n{BLOCK_UPDATE_SYSTEM_SUFFIX}"
 
     user_text = (
         f"Update the following {template_label} template using the instructions.\n\n"

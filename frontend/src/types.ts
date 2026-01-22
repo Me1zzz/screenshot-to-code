@@ -13,6 +13,7 @@ export interface Settings {
   isImageGenerationEnabled: boolean;
   isEngineeringVariantEnabled: boolean;
   isDeepThinkingEnabled: boolean;
+  isBlockUpdateEnabled: boolean;
   engineeringOpenAiApiKey: string | null;
   engineeringOpenAiBaseURL: string | null;
   engineeringOpenAiModel: string;

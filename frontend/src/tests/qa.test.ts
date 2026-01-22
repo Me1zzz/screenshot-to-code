@@ -168,6 +168,7 @@ class App {
       isImageGenerationEnabled: true,
       isEngineeringVariantEnabled: true,
       isDeepThinkingEnabled: true,
+      isBlockUpdateEnabled: false,
       engineeringOpenAiApiKey: null,
       engineeringOpenAiBaseURL: null,
       engineeringOpenAiModel: "gpt-4o-mini",

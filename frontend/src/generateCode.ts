@@ -120,6 +120,7 @@ export function generateCode(
   console.log("Connecting to backend @ ", wsUrl);
 
   const htmlStreamStates = new Map<number, HtmlStreamState>();
+  const shouldUseBlockUpdates = Boolean(params.isBlockUpdateEnabled);
   const ws = new WebSocket(wsUrl);
   wsRef.current = ws;
 
@@ -133,13 +134,19 @@ export function generateCode(
       if (typeof response.value !== "string") {
         return;
       }
-      const extracted = extractHtmlFromChunk(
-        htmlStreamStates,
-        response.variantIndex,
-        response.value
-      );
-      if (extracted) {
-        callbacks.onChange(extracted, response.variantIndex);
+      if (shouldUseBlockUpdates) {
+        if (response.value) {
+          callbacks.onChange(response.value, response.variantIndex);
+        }
+      } else {
+        const extracted = extractHtmlFromChunk(
+          htmlStreamStates,
+          response.variantIndex,
+          response.value
+        );
+        if (extracted) {
+          callbacks.onChange(extracted, response.variantIndex);
+        }
       }
     } else if (response.type === "status") {
       if (typeof response.value !== "string") {
