@@ -92,6 +92,24 @@ function SettingsDialog({ settings, setSettings }: Props) {
             }
           />
         </div>
+        <div className="flex items-center space-x-2">
+          <Label htmlFor="block-update">
+            <div>Block 更新（TOML ops）</div>
+            <div className="font-light mt-2 text-xs">
+              更新模式仅输出增量 TOML，并在后端应用替换。
+            </div>
+          </Label>
+          <Switch
+            id="block-update"
+            checked={settings.isBlockUpdateEnabled}
+            onCheckedChange={() =>
+              setSettings((s) => ({
+                ...s,
+                isBlockUpdateEnabled: !s.isBlockUpdateEnabled,
+              }))
+            }
+          />
+        </div>
         <div className="flex flex-col space-y-6">
           <div>
             <Label htmlFor="openai-api-key">

@@ -1,5 +1,19 @@
 from prompts.types import SystemPrompts
 
+BLOCK_UPDATE_SYSTEM_SUFFIX = """
+When responding for block updates:
+- Do NOT return the full updated HTML or SVG.
+- Emit one or more TOML operations wrapped in ```toml fences.
+- Each TOML op must be in its own fenced block and ordered top-to-bottom in the original code.
+- If the change is inside a div that has a data-cid attribute, output the lowest such div:
+  dataCid = "<value>"
+  html = "<div data-cid=\\"...\\">...</div>"
+- Otherwise, output a string replacement:
+  old = "<original snippet>"
+  new = "<updated snippet>"
+- Preserve formatting in snippets so exact string replacement is possible.
+""".strip()
+
 
 HTML_TAILWIND_ENGINEERING_UPDATE_SYSTEM_PROMPT = """
 You are an expert Tailwind developer.

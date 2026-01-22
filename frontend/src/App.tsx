@@ -73,6 +73,7 @@ function App() {
       isImageGenerationEnabled: true,
       isEngineeringVariantEnabled: true,
       isDeepThinkingEnabled: true,
+      isBlockUpdateEnabled: false,
       engineeringOpenAiApiKey: null,
       engineeringOpenAiBaseURL: null,
       engineeringOpenAiModel: "gpt-4o-mini",
@@ -131,6 +132,15 @@ function App() {
       }));
     }
   }, [settings.isDeepThinkingEnabled, setSettings]);
+
+  useEffect(() => {
+    if (typeof settings.isBlockUpdateEnabled !== "boolean") {
+      setSettings((prev) => ({
+        ...prev,
+        isBlockUpdateEnabled: false,
+      }));
+    }
+  }, [settings.isBlockUpdateEnabled, setSettings]);
 
   useEffect(() => {
     if (!settings.engineeringOpenAiModel) {

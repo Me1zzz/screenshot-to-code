@@ -3,6 +3,7 @@ from typing import Any, Literal
 from openai.types.chat import ChatCompletionContentPartParam, ChatCompletionMessageParam
 
 from custom_types import InputMode
+from prompts.engineering_update_prompts import BLOCK_UPDATE_SYSTEM_SUFFIX
 from prompts.types import PromptContent, Stack
 
 
@@ -43,17 +44,28 @@ def assemble_engineering_refinement_prompt(
     prompt: PromptContent,
     history: list[dict[str, Any]],
     engineered_html: str,
+    is_block_update_enabled: bool = False,
 ) -> list[ChatCompletionMessageParam]:
     instruction = _resolve_instruction_text(generation_type, prompt, history)
     instruction_block = (
         f"\n\nAdditional instructions: {instruction}" if instruction else ""
     )
+    block_update_block = (
+        f"\n\n{BLOCK_UPDATE_SYSTEM_SUFFIX}" if is_block_update_enabled else ""
+    )
+
+    response_instruction = (
+        "Return only the full updated HTML."
+        if not is_block_update_enabled
+        else "Return only TOML ops as instructed below."
+    )
 
     user_text = (
         "You are given an initial HTML implementation from the engineering variant. "
         "Refine it to match the reference (if provided) with higher visual fidelity. "
-        "Return only the full updated HTML."
-        f"{instruction_block}\n\nCurrent HTML:\n```html\n{engineered_html}\n```"
+        f"{response_instruction}"
+        f"{instruction_block}"
+        f"{block_update_block}\n\nCurrent HTML:\n```html\n{engineered_html}\n```"
     )
 
     image_url = _resolve_reference_image(input_mode, generation_type, prompt, history)
