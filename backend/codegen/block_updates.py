@@ -19,21 +19,26 @@ def replace_first_occurrence(html: str, old: str, new: str) -> tuple[str, int]:
     return updated_html, end_index
 
 
-def replace_div_by_data_cid(
+def replace_tag_by_data_cid(
     html: str, data_cid: str, new_html: str
 ) -> tuple[str, int]:
     pattern = re.compile(
-        r"<div\b[^>]*\bdata-cid=(\"|')"
+        r"<(?P<tag>div|button)\b[^>]*\bdata-cid=(\"|')"
         + re.escape(data_cid)
         + r"(\"|')[^>]*>",
         re.IGNORECASE,
     )
     match = pattern.search(html)
     if not match:
-        raise BlockUpdateError(f"Div with data-cid '{data_cid}' not found.")
+        raise BlockUpdateError(
+            f"Element with data-cid '{data_cid}' not found."
+        )
 
     start_index = match.start()
-    tag_pattern = re.compile(r"<(/?)div\b[^>]*>", re.IGNORECASE)
+    tag_name = match.group("tag")
+    tag_pattern = re.compile(
+        rf"<(/?){re.escape(tag_name)}\b[^>]*>", re.IGNORECASE
+    )
     depth = 0
     end_index = None
 
@@ -53,7 +58,7 @@ def replace_div_by_data_cid(
 
     if end_index is None:
         raise BlockUpdateError(
-            f"Closing </div> not found for data-cid '{data_cid}'."
+            f"Closing </{tag_name}> not found for data-cid '{data_cid}'."
         )
 
     updated_html = html[:start_index] + new_html + html[end_index:]
@@ -136,7 +141,7 @@ class BlockUpdateStreamProcessor:
             new_html = op.get("html")
             if not data_cid or not isinstance(new_html, str):
                 raise BlockUpdateError("dataCid ops must include an html field.")
-            updated_html, end_index = replace_div_by_data_cid(
+            updated_html, end_index = replace_tag_by_data_cid(
                 self._state.current_html, str(data_cid), new_html
             )
         elif "old" in op and "new" in op:
