@@ -1,19 +1,51 @@
 from __future__ import annotations
 
+import logging
 import tomllib
 import re
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
 
+logger = logging.getLogger(__name__)
+
+
 class BlockUpdateError(ValueError):
     pass
+
+
+def _find_whitespace_insensitive_span(text: str, snippet: str) -> tuple[int, int]:
+    text_stripped = []
+    text_index_map = []
+    for index, char in enumerate(text):
+        if not char.isspace():
+            text_stripped.append(char)
+            text_index_map.append(index)
+
+    snippet_stripped = "".join(char for char in snippet if not char.isspace())
+    if not snippet_stripped:
+        raise BlockUpdateError("Original snippet is empty after whitespace stripping.")
+
+    stripped_text = "".join(text_stripped)
+    start_stripped = stripped_text.find(snippet_stripped)
+    if start_stripped == -1:
+        raise BlockUpdateError(
+            "Original snippet not found for replacement (whitespace-insensitive)."
+        )
+
+    end_stripped = start_stripped + len(snippet_stripped) - 1
+    start_index = text_index_map[start_stripped]
+    end_index = text_index_map[end_stripped] + 1
+    return start_index, end_index
 
 
 def replace_first_occurrence(html: str, old: str, new: str) -> tuple[str, int]:
     start_index = html.find(old)
     if start_index == -1:
-        raise BlockUpdateError("Original snippet not found for replacement.")
+        start_index, end_index = _find_whitespace_insensitive_span(html, old)
+        updated_html = html[:start_index] + new + html[end_index:]
+        end_index = start_index + len(new)
+        return updated_html, end_index
     updated_html = html[:start_index] + new + html[start_index + len(old) :]
     end_index = start_index + len(new)
     return updated_html, end_index
@@ -167,17 +199,27 @@ class BlockUpdateStreamProcessor:
             new_html = op.get("html")
             if not data_cid or not isinstance(new_html, str):
                 raise BlockUpdateError("dataCid ops must include an html field.")
-            updated_html, end_index = replace_tag_by_data_cid(
-                self._state.current_html, str(data_cid), new_html
-            )
+            try:
+                updated_html, end_index = replace_tag_by_data_cid(
+                    self._state.current_html, str(data_cid), new_html
+                )
+            except BlockUpdateError as exc:
+                logger.warning(
+                    "Block update dataCid failed for %s: %s", data_cid, exc
+                )
+                return
         elif "old" in op and "new" in op:
             old_html = op.get("old")
             new_html = op.get("new")
             if not isinstance(old_html, str) or not isinstance(new_html, str):
                 raise BlockUpdateError("replace ops must include old and new strings.")
-            updated_html, end_index = replace_first_occurrence(
-                self._state.current_html, old_html, new_html
-            )
+            try:
+                updated_html, end_index = replace_first_occurrence(
+                    self._state.current_html, old_html, new_html
+                )
+            except BlockUpdateError as exc:
+                logger.warning("Block update old/new failed: %s", exc)
+                return
         else:
             raise BlockUpdateError("Unknown block update operation.")
 
