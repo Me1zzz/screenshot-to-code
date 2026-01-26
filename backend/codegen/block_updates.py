@@ -92,8 +92,16 @@ def replace_tag_by_data_cid(
         "wbr",
     }
     if self_closing or tag_name.lower() in void_tags:
+        if not _is_full_tag_replacement(tag_name, new_html, is_void=True):
+            raise BlockUpdateError(
+                f"Replacement html does not fully cover <{tag_name}> element."
+            )
         end_index = match.end()
     else:
+        if not _is_full_tag_replacement(tag_name, new_html, is_void=False):
+            raise BlockUpdateError(
+                f"Replacement html does not fully cover <{tag_name}> element."
+            )
         tag_pattern = re.compile(
             rf"<(/?){re.escape(tag_name)}\b[^>]*>", re.IGNORECASE
         )
@@ -122,6 +130,23 @@ def replace_tag_by_data_cid(
     updated_html = html[:start_index] + new_html + html[end_index:]
     replacement_end_index = start_index + len(new_html)
     return updated_html, replacement_end_index
+
+
+def _is_full_tag_replacement(tag_name: str, new_html: str, is_void: bool) -> bool:
+    stripped = new_html.strip()
+    if not stripped:
+        return False
+    if is_void:
+        pattern = re.compile(
+            rf"^<{re.escape(tag_name)}\b[^>]*?/?>$",
+            re.IGNORECASE | re.DOTALL,
+        )
+        return bool(pattern.match(stripped))
+    pattern = re.compile(
+        rf"^<{re.escape(tag_name)}\b[^>]*>.*</{re.escape(tag_name)}>$",
+        re.IGNORECASE | re.DOTALL,
+    )
+    return bool(pattern.match(stripped))
 
 
 @dataclass
