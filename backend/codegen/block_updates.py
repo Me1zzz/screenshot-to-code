@@ -23,43 +23,69 @@ def replace_tag_by_data_cid(
     html: str, data_cid: str, new_html: str
 ) -> tuple[str, int]:
     pattern = re.compile(
-        r"<(?P<tag>div|button)\b[^>]*\bdata-cid=(\"|')"
+        r"<(?P<tag>[a-zA-Z][\w:-]*)\b[^>]*\bdata-cid=(\"|')"
         + re.escape(data_cid)
-        + r"(\"|')[^>]*>",
+        + r"(\"|')[^>]*(?P<selfclosing>/?)>",
         re.IGNORECASE,
     )
-    match = pattern.search(html)
-    if not match:
+    matches = list(pattern.finditer(html))
+    if not matches:
         raise BlockUpdateError(
             f"Element with data-cid '{data_cid}' not found."
         )
+    if len(matches) > 1:
+        raise BlockUpdateError(
+            f"Multiple elements found with data-cid '{data_cid}'."
+        )
 
+    match = matches[0]
     start_index = match.start()
     tag_name = match.group("tag")
-    tag_pattern = re.compile(
-        rf"<(/?){re.escape(tag_name)}\b[^>]*>", re.IGNORECASE
-    )
-    depth = 0
-    end_index = None
+    self_closing = match.group("selfclosing") == "/"
 
-    for tag_match in tag_pattern.finditer(html, match.start()):
-        if tag_match.start() == match.start():
-            depth = 1
-            continue
-        if depth == 0:
-            continue
-        if tag_match.group(1) == "/":
-            depth -= 1
-        else:
-            depth += 1
-        if depth == 0:
-            end_index = tag_match.end()
-            break
-
-    if end_index is None:
-        raise BlockUpdateError(
-            f"Closing </{tag_name}> not found for data-cid '{data_cid}'."
+    void_tags = {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    }
+    if self_closing or tag_name.lower() in void_tags:
+        end_index = match.end()
+    else:
+        tag_pattern = re.compile(
+            rf"<(/?){re.escape(tag_name)}\b[^>]*>", re.IGNORECASE
         )
+        depth = 0
+        end_index = None
+
+        for tag_match in tag_pattern.finditer(html, match.start()):
+            if tag_match.start() == match.start():
+                depth = 1
+                continue
+            if depth == 0:
+                continue
+            if tag_match.group(1) == "/":
+                depth -= 1
+            else:
+                depth += 1
+            if depth == 0:
+                end_index = tag_match.end()
+                break
+
+        if end_index is None:
+            raise BlockUpdateError(
+                f"Closing </{tag_name}> not found for data-cid '{data_cid}'."
+            )
 
     updated_html = html[:start_index] + new_html + html[end_index:]
     replacement_end_index = start_index + len(new_html)
