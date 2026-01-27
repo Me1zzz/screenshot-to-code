@@ -105,18 +105,21 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       })),
     };
 
-    // When adding a new commit, make sure all existing commits are marked as committed
-    set((state) => ({
-      commits: {
-        ...Object.fromEntries(
-          Object.entries(state.commits).map(([hash, existingCommit]) => [
-            hash,
-            { ...existingCommit, isCommitted: true },
-          ])
-        ),
+    set((state) => {
+      const nextCommits = {
+        ...state.commits,
         [commitsWithStatus.hash]: commitsWithStatus,
-      },
-    }));
+      };
+
+      if (commit.parentHash && nextCommits[commit.parentHash]) {
+        nextCommits[commit.parentHash] = {
+          ...nextCommits[commit.parentHash],
+          isCommitted: true,
+        };
+      }
+
+      return { commits: nextCommits };
+    });
   },
   removeCommit: (hash: CommitHash) => {
     set((state) => {
