@@ -61,7 +61,22 @@ function Sidebar({
     }
   }, [updateImages, setUpdateImages]);
 
-  const { inputMode, referenceImages, head, commits } = useProjectStore();
+  const {
+    inputMode,
+    referenceImages,
+    head,
+    commits,
+    imageSessions,
+    selectedImageSessionId,
+  } = useProjectStore();
+
+  const selectedImageSession =
+    selectedImageSessionId === null
+      ? null
+      : imageSessions.find((session) => session.id === selectedImageSessionId) ??
+        null;
+  const selectedReferenceImage =
+    selectedImageSession?.referenceImage ?? referenceImages[0];
 
   const viewedCode =
     head && commits[head]
@@ -229,7 +244,7 @@ function Sidebar({
 
       {/* Reference image display */}
       <div className="flex gap-x-2 mt-2">
-        {referenceImages.length > 0 && (
+        {selectedReferenceImage && (
           <div className="flex flex-col">
             <div
               className={classNames({
@@ -239,7 +254,7 @@ function Sidebar({
               {inputMode === "image" && (
                 <img
                   className="w-[340px] border border-gray-200 rounded-md"
-                  src={referenceImages[0]}
+                  src={selectedReferenceImage}
                   alt="参考"
                 />
               )}
@@ -249,7 +264,7 @@ function Sidebar({
                   autoPlay
                   loop
                   className="w-[340px] border border-gray-200 rounded-md"
-                  src={referenceImages[0]}
+                  src={selectedReferenceImage}
                 />
               )}
             </div>

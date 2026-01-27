@@ -21,6 +21,7 @@ import PreviewPane from "./components/preview/PreviewPane";
 import { GenerationSettings } from "./components/settings/GenerationSettings";
 import StartPane from "./components/start-pane/StartPane";
 import { Commit } from "./components/commits/types";
+import { ImageSession } from "./store/project-store";
 import { createCommit } from "./components/commits/utils";
 import GenerateFromText from "./components/generate-from-text/GenerateFromText";
 
@@ -35,6 +36,11 @@ function App() {
     setReferenceImages,
     initialPrompt,
     setInitialPrompt,
+    imageSessions,
+    setImageSessions,
+    selectedImageSessionId,
+    setSelectedImageSessionId,
+    setImageSessionHead,
 
     head,
     commits,
@@ -87,7 +93,7 @@ function App() {
     "setting"
   );
 
-  const wsRef = useRef<WebSocket>(null);
+  const wsRefs = useRef<Set<WebSocket>>(new Set());
 
   const showSelectAndEditFeature =
     settings.generatedCodeConfig === Stack.HTML_TAILWIND ||
@@ -170,6 +176,8 @@ function App() {
 
     resetCommits();
     resetHead();
+    setImageSessions([]);
+    setSelectedImageSessionId(null);
 
     // Inputs
     setInputMode("image");
@@ -201,7 +209,10 @@ function App() {
 
   // Used when the user cancels the code generation
   const cancelCodeGeneration = () => {
-    wsRef.current?.close?.(USER_CLOSE_WEB_SOCKET_CODE);
+    wsRefs.current.forEach((socket) => {
+      socket.close?.(USER_CLOSE_WEB_SOCKET_CODE);
+    });
+    wsRefs.current.clear();
   };
 
   // Used for code generation failure as well
@@ -225,12 +236,34 @@ function App() {
     }
   };
 
-  function doGenerateCode(params: CodeGenerationParams) {
-    // Reset the execution console
-    resetExecutionConsoles();
+  const selectedImageSession =
+    selectedImageSessionId === null
+      ? null
+      : imageSessions.find((session) => session.id === selectedImageSessionId) ??
+        null;
 
-    // Set the app state to coding during generation
-    setAppState(AppState.CODING);
+  function doGenerateCode(
+    params: CodeGenerationParams,
+    options?: {
+      sessionId?: string | null;
+      shouldResetExecutionConsole?: boolean;
+      shouldSetAppState?: boolean;
+      onComplete?: () => void;
+      onCancel?: () => void;
+    }
+  ) {
+    const shouldResetExecutionConsole =
+      options?.shouldResetExecutionConsole ?? true;
+    const shouldSetAppState = options?.shouldSetAppState ?? true;
+    const sessionId = options?.sessionId ?? selectedImageSessionId;
+
+    if (shouldResetExecutionConsole) {
+      resetExecutionConsoles();
+    }
+
+    if (shouldSetAppState) {
+      setAppState(AppState.CODING);
+    }
 
     // Merge settings with params
     const updatedParams = { ...params, ...settings };
@@ -270,9 +303,16 @@ function App() {
     // Create a new commit and set it as the head
     const commit = createCommit(commitInputObject);
     addCommit(commit);
-    setHead(commit.hash);
+    if (sessionId) {
+      setImageSessionHead(sessionId, commit.hash);
+    } else {
+      setHead(commit.hash);
+    }
 
-    generateCode(wsRef, updatedParams, {
+    const localWsRef = { current: null as WebSocket | null };
+    let trackedSocket: WebSocket | null = null;
+
+    generateCode(localWsRef, updatedParams, {
       onChange: (token, variantIndex) => {
         appendCommitCode(commit.hash, variantIndex, token);
       },
@@ -298,11 +338,26 @@ function App() {
       },
       onCancel: () => {
         cancelCodeGenerationAndReset(commit);
+        if (trackedSocket) {
+          wsRefs.current.delete(trackedSocket);
+        }
+        options?.onCancel?.();
       },
       onComplete: () => {
-        setAppState(AppState.CODE_READY);
+        if (shouldSetAppState) {
+          setAppState(AppState.CODE_READY);
+        }
+        if (trackedSocket) {
+          wsRefs.current.delete(trackedSocket);
+        }
+        options?.onComplete?.();
       },
     });
+
+    trackedSocket = localWsRef.current;
+    if (trackedSocket) {
+      wsRefs.current.add(trackedSocket);
+    }
   }
 
   // Initial version creation
@@ -320,10 +375,37 @@ function App() {
 
     // Kick off the code generation
     if (referenceImages.length > 0) {
-      doGenerateCode({
-        generationType: "create",
-        inputMode,
-        prompt: { text: textPrompt, images: [referenceImages[0]] },
+      const sessions: ImageSession[] = referenceImages.map((image, index) => ({
+        id: `image-session-${Date.now()}-${index}`,
+        referenceImage: image,
+        head: null,
+      }));
+      setImageSessions(sessions);
+      setSelectedImageSessionId(sessions[0]?.id ?? null);
+      resetExecutionConsoles();
+      setAppState(AppState.CODING);
+
+      const generationTasks = sessions.map((session) => {
+        return new Promise<void>((resolve) => {
+          doGenerateCode(
+            {
+              generationType: "create",
+              inputMode,
+              prompt: { text: textPrompt, images: [session.referenceImage] },
+            },
+            {
+              sessionId: session.id,
+              shouldResetExecutionConsole: false,
+              shouldSetAppState: false,
+              onComplete: resolve,
+              onCancel: resolve,
+            }
+          );
+        });
+      });
+
+      Promise.all(generationTasks).then(() => {
+        setAppState(AppState.CODE_READY);
       });
     }
   }
@@ -385,7 +467,10 @@ function App() {
       prompt:
         inputMode === "text"
           ? { text: initialPrompt, images: [] }
-          : { text: "", images: [referenceImages[0]] },
+          : {
+              text: "",
+              images: [selectedImageSession?.referenceImage ?? referenceImages[0]],
+            },
       history: updatedHistory,
       isImportedFromCode,
     });
