@@ -1,5 +1,5 @@
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from abc import ABC, abstractmethod
 import traceback
 from typing import Callable, Awaitable
@@ -63,7 +63,7 @@ MessageType = Literal[
     "variantCount",
 ]
 from image_generation.core import generate_images
-from prompts import create_prompt
+from prompts import create_multi_prompt
 from prompts.claude_prompts import VIDEO_PROMPT
 from prompts.engineering_refinement import assemble_engineering_refinement_prompt
 from prompts.types import Stack, PromptContent
@@ -93,8 +93,10 @@ class PipelineContext:
     extracted_params: "ExtractedParams | None" = None
     prompt_messages: List[ChatCompletionMessageParam] = field(default_factory=list)
     image_cache: Dict[str, str] = field(default_factory=dict)
+    prompt_batches: List["PromptBatchContext"] = field(default_factory=list)
     variant_models: List[Llm] = field(default_factory=list)
     completions: List[str] = field(default_factory=list)
+    batch_completions: Dict[int, List[str]] = field(default_factory=dict)
     variant_completions: Dict[int, str] = field(default_factory=dict)
     base64_mapping: Dict[str, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -176,6 +178,7 @@ class WebSocketCommunicator:
         type: MessageType,
         value: Any,
         variantIndex: int,
+        pageIndex: int = 0,
     ) -> None:
         """Send a message to the client with debug logging"""
         # Print for debugging on the backend
@@ -191,7 +194,12 @@ class WebSocketCommunicator:
             print(f"Variant {variantIndex + 1} error: {value}")
 
         await self.websocket.send_json(
-            {"type": type, "value": value, "variantIndex": variantIndex}
+            {
+                "type": type,
+                "value": value,
+                "variantIndex": variantIndex,
+                "pageIndex": pageIndex,
+            }
         )
 
     async def throw_error(self, message: str) -> None:
@@ -232,8 +240,25 @@ class ExtractedParams:
     openai_base_url: str | None
     generation_type: Literal["create", "update"]
     prompt: PromptContent
+    prompt_batches: List["PromptBatch"]
+    prompt_batch_id: str | None
     history: List[Dict[str, Any]]
     is_imported_from_code: bool
+
+
+@dataclass
+class PromptBatch:
+    page_index: int
+    prompt: PromptContent
+
+
+@dataclass
+class PromptBatchContext:
+    page_index: int
+    prompt: PromptContent
+    prompt_messages: List[ChatCompletionMessageParam]
+    image_cache: Dict[str, str]
+    base64_mapping: Dict[str, str]
 
 
 class ParameterExtractionStage:
@@ -341,7 +366,20 @@ class ParameterExtractionStage:
             anthropic_api_key = None
 
         # Extract prompt content
-        prompt = params.get("prompt", {"text": "", "images": []})
+        try:
+            prompt = self._normalize_prompt_content(
+                params.get("prompt", {"text": "", "images": []})
+            )
+            prompt_batches = self._extract_prompt_batches(
+                params,
+                prompt,
+                validated_input_mode,
+            )
+        except ValueError as exc:
+            await self.throw_error(str(exc))
+            raise
+
+        prompt_batch_id = params.get("promptBatchId") or params.get("batchId")
 
         # Extract history (default to empty list)
         history = params.get("history", [])
@@ -365,6 +403,8 @@ class ParameterExtractionStage:
             openai_base_url=openai_base_url,
             generation_type=generation_type,
             prompt=prompt,
+            prompt_batches=prompt_batches,
+            prompt_batch_id=prompt_batch_id,
             history=history,
             is_imported_from_code=is_imported_from_code,
         )
@@ -395,6 +435,51 @@ class ParameterExtractionStage:
         except (TypeError, ValueError):
             return default_temperature
         return max(0.0, min(1.0, temperature))
+
+    def _normalize_prompt_content(self, raw_prompt: Any) -> PromptContent:
+        if not isinstance(raw_prompt, dict):
+            raise ValueError("Prompt must be an object with text/images.")
+        text = raw_prompt.get("text") or ""
+        images = raw_prompt.get("images", [])
+        if not isinstance(images, list):
+            raise ValueError("Prompt images must be a list.")
+        normalized_images = [str(image) for image in images]
+        return {"text": str(text), "images": normalized_images}
+
+    def _extract_prompt_batches(
+        self,
+        params: Dict[str, str],
+        prompt: PromptContent,
+        input_mode: InputMode,
+    ) -> List["PromptBatch"]:
+        raw_prompts = params.get("prompts")
+        prompt_batches: List[PromptBatch] = []
+
+        if raw_prompts is not None:
+            if not isinstance(raw_prompts, list):
+                raise ValueError("prompts must be a list when provided.")
+            for index, item in enumerate(raw_prompts):
+                if not isinstance(item, dict):
+                    raise ValueError("Each prompt entry must be an object.")
+                prompt_payload = item.get("prompt", item)
+                prompt_content = self._normalize_prompt_content(prompt_payload)
+                page_index = item.get("pageIndex", index)
+                prompt_batches.append(
+                    PromptBatch(page_index=int(page_index), prompt=prompt_content)
+                )
+            return prompt_batches
+
+        if input_mode != "text" and len(prompt.get("images", [])) > 1:
+            for index, image in enumerate(prompt["images"]):
+                prompt_batches.append(
+                    PromptBatch(
+                        page_index=index,
+                        prompt={"text": prompt.get("text", ""), "images": [image]},
+                    )
+                )
+            return prompt_batches
+
+        return [PromptBatch(page_index=0, prompt=prompt)]
 
 
 class ModelSelectionStage:
@@ -491,23 +576,33 @@ class PromptCreationStage:
     def __init__(self, throw_error: Callable[[str], Coroutine[Any, Any, None]]):
         self.throw_error = throw_error
 
-    async def create_prompt(
+    async def create_prompt_batches(
         self,
         extracted_params: ExtractedParams,
-    ) -> tuple[List[ChatCompletionMessageParam], Dict[str, str], Dict[str, str]]:
+    ) -> List[PromptBatchContext]:
         """Create prompt messages and return image cache"""
         try:
-            prompt_messages, image_cache, base64_mapping = await create_prompt(
+            prompt_batches = await create_multi_prompt(
                 stack=extracted_params.stack,
                 input_mode=extracted_params.input_mode,
                 generation_type=extracted_params.generation_type,
-                prompt=extracted_params.prompt,
+                prompts=[batch.prompt for batch in extracted_params.prompt_batches],
                 history=extracted_params.history,
                 is_imported_from_code=extracted_params.is_imported_from_code,
                 is_block_update_enabled=extracted_params.is_block_update_enabled,
             )
-
-            return prompt_messages, image_cache, base64_mapping
+            return [
+                PromptBatchContext(
+                    page_index=extracted_params.prompt_batches[index].page_index,
+                    prompt=extracted_params.prompt_batches[index].prompt,
+                    prompt_messages=prompt_messages,
+                    image_cache=image_cache,
+                    base64_mapping=base64_mapping,
+                )
+                for index, (prompt_messages, image_cache, base64_mapping) in enumerate(
+                    prompt_batches
+                )
+            ]
         except Exception:
             await self.throw_error(
                 "Error assembling prompt. Contact support at support@picoapps.xyz"
@@ -520,18 +615,19 @@ class MockResponseStage:
 
     def __init__(
         self,
-        send_message: Callable[[MessageType, Any, int], Coroutine[Any, Any, None]],
+        send_message: Callable[[MessageType, Any, int, int], Coroutine[Any, Any, None]],
     ):
         self.send_message = send_message
 
     async def generate_mock_response(
         self,
         input_mode: InputMode,
+        page_index: int,
     ) -> List[str]:
         """Generate mock response for testing"""
 
         async def process_chunk(content: str, variantIndex: int):
-            await self.send_message("chunk", content, variantIndex)
+            await self.send_message("chunk", content, variantIndex, page_index)
 
         completion_results = [
             await mock_completion(process_chunk, input_mode=input_mode)
@@ -539,8 +635,13 @@ class MockResponseStage:
         completions = [result["code"] for result in completion_results]
 
         # Send the complete variant back to the client
-        await self.send_message("setCode", completions[0], 0)
-        await self.send_message("variantComplete", "Variant generation complete", 0)
+        await self.send_message("setCode", completions[0], 0, page_index)
+        await self.send_message(
+            "variantComplete",
+            "Variant generation complete",
+            0,
+            page_index,
+        )
 
         return completions
 
@@ -550,7 +651,7 @@ class VideoGenerationStage:
 
     def __init__(
         self,
-        send_message: Callable[[MessageType, Any, int], Coroutine[Any, Any, None]],
+        send_message: Callable[[MessageType, Any, int, int], Coroutine[Any, Any, None]],
         throw_error: Callable[[str], Coroutine[Any, Any, None]],
     ):
         self.send_message = send_message
@@ -560,6 +661,7 @@ class VideoGenerationStage:
         self,
         prompt_messages: List[ChatCompletionMessageParam],
         anthropic_api_key: str | None,
+        page_index: int,
     ) -> List[str]:
         """Generate code for video input mode"""
         if not anthropic_api_key:
@@ -571,7 +673,7 @@ class VideoGenerationStage:
             raise Exception("No Anthropic key")
 
         async def process_chunk(content: str, variantIndex: int):
-            await self.send_message("chunk", content, variantIndex)
+            await self.send_message("chunk", content, variantIndex, page_index)
 
         completion_results = [
             await stream_claude_response_native(
@@ -586,8 +688,13 @@ class VideoGenerationStage:
         completions = [result["code"] for result in completion_results]
 
         # Send the complete variant back to the client
-        await self.send_message("setCode", completions[0], 0)
-        await self.send_message("variantComplete", "Variant generation complete", 0)
+        await self.send_message("setCode", completions[0], 0, page_index)
+        await self.send_message(
+            "variantComplete",
+            "Variant generation complete",
+            0,
+            page_index,
+        )
 
         return completions
 
@@ -600,19 +707,24 @@ class PostProcessingStage:
 
     async def process_completions(
         self,
-        completions: List[str],
-        prompt_messages: List[ChatCompletionMessageParam],
+        batch_completions: Dict[int, List[str]],
+        prompt_batches: List[PromptBatchContext],
         websocket: WebSocket,
     ) -> None:
         """Process completions and perform cleanup"""
-        # Only process non-empty completions
-        valid_completions = [comp for comp in completions if comp]
+        if not prompt_batches:
+            return
 
-        # Write the first valid completion to logs for debugging
-        if valid_completions:
-            # Strip the completion of everything except the HTML content
-            html_content = extract_html_content(valid_completions[0])
-            write_logs(prompt_messages, html_content)
+        for batch in prompt_batches:
+            completions = batch_completions.get(batch.page_index, [])
+            valid_completions = [comp for comp in completions if comp]
+
+            # Write the first valid completion to logs for debugging
+            if valid_completions:
+                # Strip the completion of everything except the HTML content
+                html_content = extract_html_content(valid_completions[0])
+                write_logs(batch.prompt_messages, html_content)
+                break
 
         # Note: WebSocket closing is handled by the caller
 
@@ -622,12 +734,13 @@ class ParallelGenerationStage:
 
     def __init__(
         self,
-        send_message: Callable[[MessageType, Any, int], Coroutine[Any, Any, None]],
+        send_message: Callable[[MessageType, Any, int, int], Coroutine[Any, Any, None]],
         openai_api_key: str | None,
         openai_base_url: str | None,
         anthropic_api_key: str | None,
         should_generate_images: bool,
         vlm_temperature: float,
+        page_index: int = 0,
     ):
         self.send_message = send_message
         self.openai_api_key = openai_api_key
@@ -635,6 +748,7 @@ class ParallelGenerationStage:
         self.anthropic_api_key = anthropic_api_key
         self.should_generate_images = should_generate_images
         self.vlm_temperature = vlm_temperature
+        self.page_index = page_index
         self._block_update_processors: dict[int, BlockUpdateStreamProcessor] = {}
         self._block_update_enabled = False
         self._block_update_base_html = ""
@@ -719,7 +833,9 @@ class ParallelGenerationStage:
                 if self._block_update_enabled:
                     block_processor = BlockUpdateStreamProcessor(
                         self._block_update_base_html,
-                        lambda delta, i=index: self.send_message("chunk", delta, i),
+                        lambda delta, i=index: self.send_message(
+                            "chunk", delta, i, self.page_index
+                        ),
                     )
                     self._block_update_processors[index] = block_processor
                 tasks.append(
@@ -758,7 +874,7 @@ class ParallelGenerationStage:
 
     async def _process_chunk(self, content: str, variant_index: int):
         """Process streaming chunks"""
-        await self.send_message("chunk", content, variant_index)
+        await self.send_message("chunk", content, variant_index, self.page_index)
 
     async def _process_block_update_chunk(
         self,
@@ -808,7 +924,9 @@ class ParallelGenerationStage:
                     else ""
                 )
             )
-            await self.send_message("variantError", error_message, index)
+            await self.send_message(
+                "variantError", error_message, index, self.page_index
+            )
             raise VariantErrorAlreadySent(e)
         except openai.NotFoundError as e:
             print(f"[VARIANT {index + 1}] OpenAI Model not found", e)
@@ -823,7 +941,9 @@ class ParallelGenerationStage:
                     else ""
                 )
             )
-            await self.send_message("variantError", error_message, index)
+            await self.send_message(
+                "variantError", error_message, index, self.page_index
+            )
             raise VariantErrorAlreadySent(e)
         except openai.RateLimitError as e:
             print(f"[VARIANT {index + 1}] OpenAI Rate limit exceeded", e)
@@ -835,7 +955,9 @@ class ParallelGenerationStage:
                     else ""
                 )
             )
-            await self.send_message("variantError", error_message, index)
+            await self.send_message(
+                "variantError", error_message, index, self.page_index
+            )
             raise VariantErrorAlreadySent(e)
 
     async def _perform_image_generation(
@@ -913,8 +1035,11 @@ class ParallelGenerationStage:
             if extracted_params.is_block_update_enabled:
                 block_processor = BlockUpdateStreamProcessor(
                     html_output,
-                    lambda delta, i=index: self.send_message("chunk", delta, i),
+                    lambda delta, i=index: self.send_message(
+                        "chunk", delta, i, self.page_index
+                    ),
                 )
+
                 async def process_block_update_chunk(content: str) -> None:
                     print(content, end="", flush=True)
                     await block_processor.process_chunk(content)
@@ -949,7 +1074,9 @@ class ParallelGenerationStage:
                     else ""
                 )
             )
-            await self.send_message("variantError", error_message, index)
+            await self.send_message(
+                "variantError", error_message, index, self.page_index
+            )
             raise VariantErrorAlreadySent(e)
         except openai.NotFoundError as e:
             print(f"[VARIANT {index + 1}] Engineering OpenAI Model not found", e)
@@ -957,7 +1084,9 @@ class ParallelGenerationStage:
                 e.message
                 + ". Please make sure your Engineering OpenAI model name is valid."
             )
-            await self.send_message("variantError", error_message, index)
+            await self.send_message(
+                "variantError", error_message, index, self.page_index
+            )
             raise VariantErrorAlreadySent(e)
         except openai.RateLimitError as e:
             print(f"[VARIANT {index + 1}] Engineering OpenAI Rate limit exceeded", e)
@@ -969,7 +1098,9 @@ class ParallelGenerationStage:
                     else ""
                 )
             )
-            await self.send_message("variantError", error_message, index)
+            await self.send_message(
+                "variantError", error_message, index, self.page_index
+            )
             raise VariantErrorAlreadySent(e)
 
     async def _process_variant_completion(
@@ -1009,14 +1140,19 @@ class ParallelGenerationStage:
                 arkui_output = completion.get("arkui")
                 if arkui_output is not None:
                     payload = {"html": processed_html, "arkui": arkui_output}
-                    await self.send_message("setCode", payload, index)
+                    await self.send_message(
+                        "setCode", payload, index, self.page_index
+                    )
                 else:
                     # Send the complete variant back to the client
-                    await self.send_message("setCode", processed_html, index)
+                    await self.send_message(
+                        "setCode", processed_html, index, self.page_index
+                    )
                 await self.send_message(
                     "variantComplete",
                     "Variant generation complete",
                     index,
+                    self.page_index,
                 )
             except Exception as inner_e:
                 # If websocket is closed or other error during post-processing
@@ -1030,7 +1166,9 @@ class ParallelGenerationStage:
 
             # Only send error message if it hasn't been sent already
             if not isinstance(e, VariantErrorAlreadySent):
-                await self.send_message("variantError", str(e), index)
+                await self.send_message(
+                    "variantError", str(e), index, self.page_index
+                )
 
 
 # Pipeline Middleware Implementations
@@ -1083,11 +1221,22 @@ class StatusBroadcastMiddleware(Middleware):
     async def process(
         self, context: PipelineContext, next_func: Callable[[], Awaitable[None]]
     ) -> None:
-        # Tell frontend how many variants we're using
-        await context.send_message("variantCount", str(NUM_VARIANTS), 0)
+        page_indices = (
+            [batch.page_index for batch in context.prompt_batches]
+            if context.prompt_batches
+            else [0]
+        )
 
-        for i in range(NUM_VARIANTS):
-            await context.send_message("status", "Generating code...", i)
+        # Tell frontend how many variants we're using
+        for page_index in page_indices:
+            await context.send_message("variantCount", str(NUM_VARIANTS), 0, page_index)
+            for i in range(NUM_VARIANTS):
+                await context.send_message(
+                    "status",
+                    "Generating code...",
+                    i,
+                    page_index,
+                )
 
         await next_func()
 
@@ -1100,11 +1249,13 @@ class PromptCreationMiddleware(Middleware):
     ) -> None:
         prompt_creator = PromptCreationStage(context.throw_error)
         assert context.extracted_params is not None
-        (
-            context.prompt_messages,
-            context.image_cache,
-            context.base64_mapping,
-        ) = await prompt_creator.create_prompt(context.extracted_params)
+        context.prompt_batches = await prompt_creator.create_prompt_batches(
+            context.extracted_params
+        )
+        if context.prompt_batches:
+            context.prompt_messages = context.prompt_batches[0].prompt_messages
+            context.image_cache = context.prompt_batches[0].image_cache
+            context.base64_mapping = context.prompt_batches[0].base64_mapping
 
         await next_func()
 
@@ -1119,9 +1270,18 @@ class CodeGenerationMiddleware(Middleware):
             # Use mock response for testing
             mock_stage = MockResponseStage(context.send_message)
             assert context.extracted_params is not None
-            context.completions = await mock_stage.generate_mock_response(
-                context.extracted_params.input_mode
-            )
+            context.batch_completions = {}
+            for batch in context.prompt_batches:
+                context.batch_completions[batch.page_index] = (
+                    await mock_stage.generate_mock_response(
+                        context.extracted_params.input_mode,
+                        batch.page_index,
+                    )
+                )
+            if context.prompt_batches:
+                context.completions = context.batch_completions[
+                    context.prompt_batches[0].page_index
+                ]
         else:
             try:
                 assert context.extracted_params is not None
@@ -1130,10 +1290,22 @@ class CodeGenerationMiddleware(Middleware):
                     video_stage = VideoGenerationStage(
                         context.send_message, context.throw_error
                     )
-                    context.completions = await video_stage.generate_video_code(
-                        context.prompt_messages,
-                        context.extracted_params.anthropic_api_key,
+                    context.batch_completions = {}
+                    first_batch = (
+                        context.prompt_batches[0] if context.prompt_batches else None
                     )
+                    if first_batch is None:
+                        await context.throw_error(
+                            "Error assembling prompt. Please contact support."
+                        )
+                        return
+                    completions = await video_stage.generate_video_code(
+                        first_batch.prompt_messages,
+                        context.extracted_params.anthropic_api_key,
+                        first_batch.page_index,
+                    )
+                    context.batch_completions[first_batch.page_index] = completions
+                    context.completions = completions
                 else:
                     # Select models
                     model_selector = ModelSelectionStage(context.throw_error)
@@ -1146,41 +1318,66 @@ class CodeGenerationMiddleware(Middleware):
                         gemini_api_key=GEMINI_API_KEY,
                     )
 
-                    # Generate code for all variants
-                    generation_stage = ParallelGenerationStage(
-                        send_message=context.send_message,
-                        openai_api_key=context.extracted_params.openai_api_key,
-                        openai_base_url=context.extracted_params.openai_base_url,
-                        anthropic_api_key=context.extracted_params.anthropic_api_key,
-                        should_generate_images=context.extracted_params.should_generate_images,
-                        vlm_temperature=context.extracted_params.vlm_temperature,
+                    async def generate_for_batch(
+                        batch: PromptBatchContext,
+                    ) -> tuple[int, Dict[int, str]]:
+                        extracted_params = replace(
+                            context.extracted_params, prompt=batch.prompt
+                        )
+                        generation_stage = ParallelGenerationStage(
+                            send_message=context.send_message,
+                            openai_api_key=extracted_params.openai_api_key,
+                            openai_base_url=extracted_params.openai_base_url,
+                            anthropic_api_key=extracted_params.anthropic_api_key,
+                            should_generate_images=extracted_params.should_generate_images,
+                            vlm_temperature=extracted_params.vlm_temperature,
+                            page_index=batch.page_index,
+                        )
+
+                        completions = await generation_stage.process_variants(
+                            variant_models=context.variant_models,
+                            prompt_messages=batch.prompt_messages,
+                            image_cache=batch.image_cache,
+                            base64_mapping=batch.base64_mapping,
+                            params=context.params,
+                            extracted_params=extracted_params,
+                        )
+                        return batch.page_index, completions
+
+                    generation_results = await asyncio.gather(
+                        *[
+                            generate_for_batch(batch)
+                            for batch in context.prompt_batches
+                        ],
+                        return_exceptions=True,
                     )
 
-                    context.variant_completions = (
-                        await generation_stage.process_variants(
-                            variant_models=context.variant_models,
-                            prompt_messages=context.prompt_messages,
-                            image_cache=context.image_cache,
-                            base64_mapping=context.base64_mapping,
-                            params=context.params,
-                            extracted_params=context.extracted_params,
-                        )
-                    )
+                    context.batch_completions = {}
+                    for result in generation_results:
+                        if isinstance(result, Exception):
+                            raise result
+                        page_index, variant_completions = result
+                        if len(variant_completions) == 0:
+                            continue
+                        batch_completions: List[str] = []
+                        for i in range(len(context.variant_models)):
+                            batch_completions.append(
+                                variant_completions.get(i, "")
+                            )
+                        context.batch_completions[page_index] = batch_completions
 
                     # Check if all variants failed
-                    if len(context.variant_completions) == 0:
+                    if not context.batch_completions:
                         await context.throw_error(
                             "Error generating code. Please contact support."
                         )
                         return  # Don't continue the pipeline
 
-                    # Convert to list format
-                    context.completions = []
-                    for i in range(len(context.variant_models)):
-                        if i in context.variant_completions:
-                            context.completions.append(context.variant_completions[i])
-                        else:
-                            context.completions.append("")
+                    if context.prompt_batches:
+                        first_page_index = context.prompt_batches[0].page_index
+                        context.completions = context.batch_completions.get(
+                            first_page_index, []
+                        )
 
             except Exception as e:
                 print(f"[GENERATE_CODE] Unexpected error: {e}")
@@ -1198,7 +1395,7 @@ class PostProcessingMiddleware(Middleware):
     ) -> None:
         post_processor = PostProcessingStage()
         await post_processor.process_completions(
-            context.completions, context.prompt_messages, context.websocket
+            context.batch_completions, context.prompt_batches, context.websocket
         )
 
         await next_func()
@@ -1212,8 +1409,8 @@ async def stream_code(websocket: WebSocket):
     # Configure the pipeline
     pipeline.use(WebSocketSetupMiddleware())
     pipeline.use(ParameterExtractionMiddleware())
-    pipeline.use(StatusBroadcastMiddleware())
     pipeline.use(PromptCreationMiddleware())
+    pipeline.use(StatusBroadcastMiddleware())
     pipeline.use(CodeGenerationMiddleware())
     pipeline.use(PostProcessingMiddleware())
 

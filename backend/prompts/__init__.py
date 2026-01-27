@@ -80,6 +80,35 @@ async def create_prompt(
     return prompt_messages, image_cache, base64_mapping
 
 
+async def create_multi_prompt(
+    stack: Stack,
+    input_mode: InputMode,
+    generation_type: str,
+    prompts: list[PromptContent],
+    history: list[dict[str, Any]],
+    is_imported_from_code: bool,
+    is_block_update_enabled: bool = False,
+) -> list[tuple[list[ChatCompletionMessageParam], dict[str, str], dict[str, str]]]:
+    prompt_batches: list[
+        tuple[list[ChatCompletionMessageParam], dict[str, str], dict[str, str]]
+    ] = []
+
+    for prompt in prompts:
+        prompt_batches.append(
+            await create_prompt(
+                stack=stack,
+                input_mode=input_mode,
+                generation_type=generation_type,
+                prompt=prompt,
+                history=history,
+                is_imported_from_code=is_imported_from_code,
+                is_block_update_enabled=is_block_update_enabled,
+            )
+        )
+
+    return prompt_batches
+
+
 def create_message_from_history_item(
     item: dict[str, Any], role: str
 ) -> ChatCompletionMessageParam:

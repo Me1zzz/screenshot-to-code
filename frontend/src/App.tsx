@@ -273,26 +273,26 @@ function App() {
     setHead(commit.hash);
 
     generateCode(wsRef, updatedParams, {
-      onChange: (token, variantIndex) => {
+      onChange: (token, variantIndex, _pageIndex) => {
         appendCommitCode(commit.hash, variantIndex, token);
       },
-      onSetCode: (code, variantIndex, arkuiCode) => {
+      onSetCode: (code, variantIndex, _pageIndex, arkuiCode) => {
         setCommitCode(commit.hash, variantIndex, code);
         if (arkuiCode && arkuiCode.length > 0) {
           setCommitArkuiCode(commit.hash, variantIndex, arkuiCode);
         }
       },
-      onStatusUpdate: (line, variantIndex) =>
+      onStatusUpdate: (line, variantIndex, _pageIndex) =>
         appendExecutionConsole(variantIndex, line),
-      onVariantComplete: (variantIndex) => {
+      onVariantComplete: (variantIndex, _pageIndex) => {
         console.log(`Variant ${variantIndex} complete event received`);
         updateVariantStatus(commit.hash, variantIndex, "complete");
       },
-      onVariantError: (variantIndex, error) => {
+      onVariantError: (variantIndex, error, _pageIndex) => {
         console.error(`Error in variant ${variantIndex}:`, error);
         updateVariantStatus(commit.hash, variantIndex, "error", error);
       },
-      onVariantCount: (count) => {
+      onVariantCount: (count, _pageIndex) => {
         console.log(`Backend is using ${count} variants`);
         resizeVariants(commit.hash, count);
       },

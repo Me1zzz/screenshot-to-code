@@ -22,15 +22,21 @@ type WebSocketResponse = {
     | "variantCount";
   value: string | { html: string; arkui?: string };
   variantIndex: number;
+  pageIndex?: number;
 };
 
 interface CodeGenerationCallbacks {
-  onChange: (chunk: string, variantIndex: number) => void;
-  onSetCode: (code: string, variantIndex: number, arkuiCode?: string) => void;
-  onStatusUpdate: (status: string, variantIndex: number) => void;
-  onVariantComplete: (variantIndex: number) => void;
-  onVariantError: (variantIndex: number, error: string) => void;
-  onVariantCount: (count: number) => void;
+  onChange: (chunk: string, variantIndex: number, pageIndex: number) => void;
+  onSetCode: (
+    code: string,
+    variantIndex: number,
+    pageIndex: number,
+    arkuiCode?: string
+  ) => void;
+  onStatusUpdate: (status: string, variantIndex: number, pageIndex: number) => void;
+  onVariantComplete: (variantIndex: number, pageIndex: number) => void;
+  onVariantError: (variantIndex: number, error: string, pageIndex: number) => void;
+  onVariantCount: (count: number, pageIndex: number) => void;
   onCancel: () => void;
   onComplete: () => void;
 }
@@ -46,31 +52,31 @@ const END_FENCE = "```";
 const END_FENCE_PREFIX_LENGTH = END_FENCE.length - 1;
 
 function getHtmlStreamState(
-  states: Map<number, HtmlStreamState>,
-  variantIndex: number
+  states: Map<string, HtmlStreamState>,
+  key: string
 ) {
-  const existing = states.get(variantIndex);
+  const existing = states.get(key);
   if (existing) {
     return existing;
   }
   const initial = { buffer: "", isCapturing: false };
-  states.set(variantIndex, initial);
+  states.set(key, initial);
   return initial;
 }
 
 function resetHtmlStreamState(
-  states: Map<number, HtmlStreamState>,
-  variantIndex: number
+  states: Map<string, HtmlStreamState>,
+  key: string
 ) {
-  states.set(variantIndex, { buffer: "", isCapturing: false });
+  states.set(key, { buffer: "", isCapturing: false });
 }
 
 function extractHtmlFromChunk(
-  states: Map<number, HtmlStreamState>,
-  variantIndex: number,
+  states: Map<string, HtmlStreamState>,
+  key: string,
   chunk: string
 ) {
-  const state = getHtmlStreamState(states, variantIndex);
+  const state = getHtmlStreamState(states, key);
   state.buffer += chunk;
   let extracted = "";
 
@@ -119,7 +125,7 @@ export function generateCode(
   const wsUrl = `${WS_BACKEND_URL}/generate-code`;
   console.log("Connecting to backend @ ", wsUrl);
 
-  const htmlStreamStates = new Map<number, HtmlStreamState>();
+  const htmlStreamStates = new Map<string, HtmlStreamState>();
   const shouldUseBlockUpdates = Boolean(params.isBlockUpdateEnabled);
   const ws = new WebSocket(wsUrl);
   wsRef.current = ws;
@@ -130,52 +136,56 @@ export function generateCode(
 
   ws.addEventListener("message", async (event: MessageEvent) => {
     const response = JSON.parse(event.data) as WebSocketResponse;
+    const pageIndex =
+      typeof response.pageIndex === "number" ? response.pageIndex : 0;
+    const streamKey = `${pageIndex}:${response.variantIndex}`;
     if (response.type === "chunk") {
       if (typeof response.value !== "string") {
         return;
       }
       if (shouldUseBlockUpdates) {
         if (response.value) {
-          callbacks.onChange(response.value, response.variantIndex);
+          callbacks.onChange(response.value, response.variantIndex, pageIndex);
         }
       } else {
         const extracted = extractHtmlFromChunk(
           htmlStreamStates,
-          response.variantIndex,
+          streamKey,
           response.value
         );
         if (extracted) {
-          callbacks.onChange(extracted, response.variantIndex);
+          callbacks.onChange(extracted, response.variantIndex, pageIndex);
         }
       }
     } else if (response.type === "status") {
       if (typeof response.value !== "string") {
         return;
       }
-      callbacks.onStatusUpdate(response.value, response.variantIndex);
+      callbacks.onStatusUpdate(response.value, response.variantIndex, pageIndex);
     } else if (response.type === "setCode") {
-      resetHtmlStreamState(htmlStreamStates, response.variantIndex);
+      resetHtmlStreamState(htmlStreamStates, streamKey);
       if (typeof response.value === "string") {
-        callbacks.onSetCode(response.value, response.variantIndex);
+        callbacks.onSetCode(response.value, response.variantIndex, pageIndex);
       } else {
         callbacks.onSetCode(
           response.value.html,
           response.variantIndex,
+          pageIndex,
           response.value.arkui
         );
       }
     } else if (response.type === "variantComplete") {
-      callbacks.onVariantComplete(response.variantIndex);
+      callbacks.onVariantComplete(response.variantIndex, pageIndex);
     } else if (response.type === "variantError") {
       if (typeof response.value !== "string") {
         return;
       }
-      callbacks.onVariantError(response.variantIndex, response.value);
+      callbacks.onVariantError(response.variantIndex, response.value, pageIndex);
     } else if (response.type === "variantCount") {
       if (typeof response.value !== "string") {
         return;
       }
-      callbacks.onVariantCount(parseInt(response.value));
+      callbacks.onVariantCount(parseInt(response.value), pageIndex);
     } else if (response.type === "error") {
       if (typeof response.value !== "string") {
         return;
