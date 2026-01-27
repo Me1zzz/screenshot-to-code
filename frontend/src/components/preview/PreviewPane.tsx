@@ -23,7 +23,14 @@ interface Props {
 
 function PreviewPane({ doUpdate, reset, settings }: Props) {
   const { appState } = useAppStore();
-  const { inputMode, head, commits } = useProjectStore();
+  const {
+    inputMode,
+    head,
+    commits,
+    imageSessions,
+    selectedImageSessionId,
+    setSelectedImageSessionId,
+  } = useProjectStore();
 
   const currentCommit = head && commits[head] ? commits[head] : "";
   const currentVariant = currentCommit
@@ -39,6 +46,37 @@ function PreviewPane({ doUpdate, reset, settings }: Props) {
 
   return (
     <div className="ml-4">
+      {imageSessions.length > 1 && (
+        <div className="mb-4 mr-8">
+          <div className="text-sm text-gray-500 mb-2">选择图片</div>
+          <div className="flex flex-wrap gap-2">
+            {imageSessions.map((session, index) => {
+              const isSelected = session.id === selectedImageSessionId;
+              return (
+                <button
+                  key={session.id}
+                  type="button"
+                  onClick={() => setSelectedImageSessionId(session.id)}
+                  className={`flex items-center gap-2 rounded-md border px-2 py-1 text-sm transition ${
+                    isSelected
+                      ? "border-black bg-black text-white"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-400"
+                  }`}
+                >
+                  <span className="inline-flex h-8 w-12 items-center justify-center overflow-hidden rounded border border-gray-200 bg-white">
+                    <img
+                      src={session.referenceImage}
+                      alt={`参考图 ${index + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </span>
+                  <span>图 {index + 1}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <Tabs defaultValue="mobile">
         <div className="flex justify-between mr-8 mb-4">
           <div className="flex items-center gap-x-2">

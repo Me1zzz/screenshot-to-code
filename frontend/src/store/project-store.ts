@@ -12,6 +12,11 @@ interface ProjectStore {
   setReferenceImages: (images: string[]) => void;
   initialPrompt: string;
   setInitialPrompt: (prompt: string) => void;
+  imageSessions: ImageSession[];
+  setImageSessions: (sessions: ImageSession[]) => void;
+  selectedImageSessionId: string | null;
+  setSelectedImageSessionId: (sessionId: string | null) => void;
+  setImageSessionHead: (sessionId: string, head: CommitHash | null) => void;
 
   // Outputs
   commits: Record<string, Commit>;
@@ -49,6 +54,12 @@ interface ProjectStore {
   resetExecutionConsoles: () => void;
 }
 
+export interface ImageSession {
+  id: string;
+  referenceImage: string;
+  head: CommitHash | null;
+}
+
 export const useProjectStore = create<ProjectStore>((set) => ({
   // Inputs and their setters
   inputMode: "image",
@@ -59,6 +70,26 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   setReferenceImages: (images) => set({ referenceImages: images }),
   initialPrompt: "",
   setInitialPrompt: (prompt) => set({ initialPrompt: prompt }),
+  imageSessions: [],
+  setImageSessions: (sessions) => set({ imageSessions: sessions }),
+  selectedImageSessionId: null,
+  setSelectedImageSessionId: (sessionId) =>
+    set((state) => ({
+      selectedImageSessionId: sessionId,
+      head:
+        sessionId === null
+          ? null
+          : state.imageSessions.find((session) => session.id === sessionId)
+              ?.head ?? null,
+    })),
+  setImageSessionHead: (sessionId, head) =>
+    set((state) => ({
+      imageSessions: state.imageSessions.map((session) =>
+        session.id === sessionId ? { ...session, head } : session
+      ),
+      head:
+        state.selectedImageSessionId === sessionId ? head : state.head,
+    })),
 
   // Outputs
   commits: {},
@@ -228,7 +259,17 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       };
     }),
 
-  setHead: (hash: CommitHash) => set({ head: hash }),
+  setHead: (hash: CommitHash) =>
+    set((state) => ({
+      head: hash,
+      imageSessions: state.selectedImageSessionId
+        ? state.imageSessions.map((session) =>
+            session.id === state.selectedImageSessionId
+              ? { ...session, head: hash }
+              : session
+          )
+        : state.imageSessions,
+    })),
   resetHead: () => set({ head: null }),
 
   executionConsoles: {},
