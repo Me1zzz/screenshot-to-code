@@ -43,10 +43,18 @@ export interface PromptContent {
   images: string[]; // Array of data URLs
 }
 
+export type PromptBatchEntry = PromptContent & {
+  prompt?: PromptContent;
+  pageIndex?: number;
+  batchId?: string;
+};
+
 export interface CodeGenerationParams {
   generationType: "create" | "update";
   inputMode: "image" | "video" | "text";
   prompt: PromptContent;
+  prompts?: PromptBatchEntry[];
+  promptBatchId?: string;
   history?: PromptContent[];
   isImportedFromCode?: boolean;
 }
