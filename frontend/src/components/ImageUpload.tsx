@@ -120,6 +120,22 @@ function ImageUpload({
     setShowTextPrompt(false);
   };
 
+  const handleRemoveFile = (index: number) => {
+    setFiles((prevFiles) => {
+      const nextFiles = prevFiles.filter((_, fileIndex) => fileIndex !== index);
+      return nextFiles;
+    });
+    setUploadedDataUrls((prevUrls) => {
+      const nextUrls = prevUrls.filter((_, urlIndex) => urlIndex !== index);
+      if (nextUrls.length === 0) {
+        setTextPrompt("");
+        setShowTextPrompt(false);
+        setUploadedInputMode("image");
+      }
+      return nextUrls;
+    });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -129,7 +145,6 @@ function ImageUpload({
 
   const { getRootProps, getInputProps, isFocused, isDragAccept, isDragReject } =
     useDropzone({
-      maxFiles: 1,
       maxSize: 1024 * 1024 * 20, // 20 MB
       accept: {
         // Image formats
@@ -142,6 +157,17 @@ function ImageUpload({
         "video/webm": [".webm"],
       },
       onDrop: (acceptedFiles) => {
+        if (acceptedFiles.length === 0) {
+          return;
+        }
+        const containsVideo = acceptedFiles.some((file) =>
+          file.type.startsWith("video/")
+        );
+        if (containsVideo && acceptedFiles.length > 1) {
+          toast.error("视频只支持单文件上传，请移除其他文件。");
+          return;
+        }
+
         // Set up the preview thumbnail images
         setFiles(
           acceptedFiles.map((file: File) =>
@@ -212,38 +238,80 @@ function ImageUpload({
       {hasUploadedFile && (
         <div className="flex flex-col items-center gap-4 w-4/5 mx-auto">
           {/* Image/Video Preview */}
-          <div className="relative w-full max-w-2xl">
+          <div className="w-full max-w-3xl">
             {uploadedInputMode === "video" ? (
-              <video
-                src={files[0]?.preview}
-                className="w-full h-auto max-h-[500px] object-contain rounded-lg"
-                controls
-              />
-            ) : (
-              <img
-                src={files[0]?.preview}
-                alt="已上传的截图"
-                className="w-full h-auto max-h-[500px] object-contain rounded-lg"
-              />
-            )}
-            <button
-              onClick={handleClear}
-              className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
-              aria-label="移除图片"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-gray-600"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                  clipRule="evenodd"
+              <div className="relative">
+                <video
+                  src={files[0]?.preview}
+                  className="w-full h-auto max-h-[500px] object-contain rounded-lg"
+                  controls
                 />
-              </svg>
-            </button>
+                <button
+                  onClick={handleClear}
+                  className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
+                  aria-label="移除视频"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-gray-600"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-500">
+                    已上传 {files.length} 张
+                  </div>
+                  <button
+                    onClick={handleClear}
+                    className="text-xs text-gray-500 hover:text-gray-700 underline"
+                  >
+                    清空
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {files.map((file, index) => (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="relative overflow-hidden rounded-lg border border-gray-200"
+                    >
+                      <img
+                        src={file.preview}
+                        alt={`已上传截图 ${index + 1}`}
+                        className="h-40 w-full object-cover"
+                      />
+                      <button
+                        onClick={() => handleRemoveFile(index)}
+                        className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
+                        aria-label="移除图片"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 text-gray-600"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Text Prompt Toggle/Input */}
