@@ -18,6 +18,13 @@ interface ProjectStore {
   setSelectedImageSessionId: (sessionId: string | null) => void;
   setImageSessionHead: (sessionId: string, head: CommitHash | null) => void;
 
+  versions: VersionEntry[];
+  selectedVersionId: string | null;
+  addVersion: (version: VersionEntry) => void;
+  setVersion: (versionId: string) => void;
+  resetVersions: () => void;
+  removeLastVersion: () => void;
+
   // Outputs
   commits: Record<string, Commit>;
   head: CommitHash | null;
@@ -60,6 +67,15 @@ export interface ImageSession {
   head: CommitHash | null;
 }
 
+export interface VersionEntry {
+  id: string;
+  createdAt: Date;
+  summary: string;
+  type: "create" | "edit" | "code_create";
+  sessionHeads: Record<string, CommitHash | null>;
+  primaryHead: CommitHash | null;
+}
+
 export const useProjectStore = create<ProjectStore>((set) => ({
   // Inputs and their setters
   inputMode: "image",
@@ -89,6 +105,41 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       ),
       head:
         state.selectedImageSessionId === sessionId ? head : state.head,
+    })),
+
+  versions: [],
+  selectedVersionId: null,
+  addVersion: (version) =>
+    set((state) => ({
+      versions: [...state.versions, version],
+      selectedVersionId: version.id,
+    })),
+  setVersion: (versionId) =>
+    set((state) => {
+      const version = state.versions.find((item) => item.id === versionId);
+      if (!version) return state;
+
+      const nextImageSessions = state.imageSessions.map((session) => ({
+        ...session,
+        head: version.sessionHeads[session.id] ?? session.head ?? null,
+      }));
+
+      return {
+        selectedVersionId: versionId,
+        imageSessions: nextImageSessions,
+        head: state.selectedImageSessionId
+          ? version.sessionHeads[state.selectedImageSessionId] ?? null
+          : version.primaryHead,
+      };
+    }),
+  resetVersions: () => set({ versions: [], selectedVersionId: null }),
+  removeLastVersion: () =>
+    set((state) => ({
+      versions: state.versions.slice(0, -1),
+      selectedVersionId:
+        state.versions.length > 1
+          ? state.versions[state.versions.length - 2]?.id ?? null
+          : null,
     })),
 
   // Outputs

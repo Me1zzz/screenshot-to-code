@@ -2,7 +2,6 @@ import toast from "react-hot-toast";
 import classNames from "classnames";
 
 import { Badge } from "../ui/badge";
-import { renderHistory } from "./utils";
 import {
   Collapsible,
   CollapsibleContent,
@@ -17,22 +16,26 @@ interface Props {
 }
 
 export default function HistoryDisplay({ shouldDisableReverts }: Props) {
-  const { commits, head, setHead } = useProjectStore();
+  const { versions, selectedVersionId, setVersion } = useProjectStore();
 
-  // Put all commits into an array and sort by created date (oldest first)
-  const flatHistory = Object.values(commits).sort(
-    (a, b) =>
-      new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime()
-  );
+  const versionLabels = versions.map((version) => {
+    switch (version.type) {
+      case "create":
+        return "创建";
+      case "edit":
+        return "编辑";
+      case "code_create":
+        return "从代码导入";
+      default:
+        return "创建";
+    }
+  });
 
-  // Annotate history items with a summary, parent version, etc.
-  const renderedHistory = renderHistory(flatHistory);
-
-  return renderedHistory.length === 0 ? null : (
+  return versions.length === 0 ? null : (
     <div className="flex flex-col h-screen">
       <h1 className="font-bold mb-2">版本</h1>
       <ul className="space-y-0 flex flex-col-reverse">
-        {renderedHistory.map((item, index) => (
+        {versions.map((version, index) => (
           <li key={index}>
             <Collapsible>
               <div
@@ -40,8 +43,10 @@ export default function HistoryDisplay({ shouldDisableReverts }: Props) {
                   "flex items-center justify-between space-x-2 w-full pr-2",
                   "border-b cursor-pointer",
                   {
-                    " hover:bg-black hover:text-white": item.hash === head,
-                    "bg-slate-500 text-white": item.hash === head,
+                    " hover:bg-black hover:text-white":
+                      version.id === selectedVersionId,
+                    "bg-slate-500 text-white":
+                      version.id === selectedVersionId,
                   }
                 )}
               >
@@ -50,16 +55,11 @@ export default function HistoryDisplay({ shouldDisableReverts }: Props) {
                   onClick={() =>
                     shouldDisableReverts
                       ? toast.error("请等待代码生成完成后再查看旧版本。")
-                      : setHead(item.hash)
+                      : setVersion(version.id)
                   }
                 >
                   <div className="flex gap-x-1 truncate">
-                    <h2 className="text-sm truncate">{item.summary}</h2>
-                    {item.parentVersion !== null && (
-                      <h2 className="text-sm">
-                        (父版本：v{item.parentVersion})
-                      </h2>
-                    )}
+                    <h2 className="text-sm truncate">{version.summary}</h2>
                   </div>
                   <h2 className="text-sm">v{index + 1}</h2>
                 </div>
@@ -71,9 +71,9 @@ export default function HistoryDisplay({ shouldDisableReverts }: Props) {
                 </CollapsibleTrigger>
               </div>
               <CollapsibleContent className="w-full bg-slate-300 p-2">
-                <div>完整提示：{item.summary}</div>
+                <div>完整提示：{version.summary}</div>
                 <div className="flex justify-end">
-                  <Badge>{item.type}</Badge>
+                  <Badge>{versionLabels[index]}</Badge>
                 </div>
               </CollapsibleContent>
             </Collapsible>
