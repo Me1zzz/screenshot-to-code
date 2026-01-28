@@ -20,10 +20,11 @@ import Sidebar from "./components/sidebar/Sidebar";
 import PreviewPane from "./components/preview/PreviewPane";
 import { GenerationSettings } from "./components/settings/GenerationSettings";
 import StartPane from "./components/start-pane/StartPane";
-import { Commit } from "./components/commits/types";
+import { Commit, CommitHash } from "./components/commits/types";
 import { ImageSession } from "./store/project-store";
 import { createCommit } from "./components/commits/utils";
 import GenerateFromText from "./components/generate-from-text/GenerateFromText";
+import { nanoid } from "nanoid";
 
 function App() {
   const {
@@ -41,6 +42,9 @@ function App() {
     selectedImageSessionId,
     setSelectedImageSessionId,
     setImageSessionHead,
+    addVersion,
+    resetVersions,
+    removeLastVersion,
 
     head,
     commits,
@@ -176,6 +180,7 @@ function App() {
 
     resetCommits();
     resetHead();
+    resetVersions();
     setImageSessions([]);
     setSelectedImageSessionId(null);
 
@@ -223,6 +228,7 @@ function App() {
     } else {
       // Otherwise, remove current commit from commits
       removeCommit(commit.hash);
+      removeLastVersion();
 
       // Revert to parent commit
       const parentCommitHash = commit.parentHash;
@@ -251,7 +257,7 @@ function App() {
       onComplete?: () => void;
       onCancel?: () => void;
     }
-  ) {
+  ): CommitHash {
     const shouldResetExecutionConsole =
       options?.shouldResetExecutionConsole ?? true;
     const shouldSetAppState = options?.shouldSetAppState ?? true;
@@ -358,6 +364,8 @@ function App() {
     if (trackedSocket) {
       wsRefs.current.add(trackedSocket);
     }
+
+    return commit.hash;
   }
 
   // Initial version creation
@@ -385,9 +393,15 @@ function App() {
       resetExecutionConsoles();
       setAppState(AppState.CODING);
 
-      const generationTasks = sessions.map((session) => {
+      const versionId = nanoid();
+      const versionSummary =
+        textPrompt.trim().length > 0 ? textPrompt : "创建";
+      const versionSessionHeads: Record<string, CommitHash | null> = {};
+      let primaryHead: CommitHash | null = null;
+
+      const generationTasks = sessions.map((session, index) => {
         return new Promise<void>((resolve) => {
-          doGenerateCode(
+          const commitHash = doGenerateCode(
             {
               generationType: "create",
               inputMode,
@@ -401,7 +415,20 @@ function App() {
               onCancel: resolve,
             }
           );
+          versionSessionHeads[session.id] = commitHash;
+          if (index === 0) {
+            primaryHead = commitHash;
+          }
         });
+      });
+
+      addVersion({
+        id: versionId,
+        createdAt: new Date(),
+        summary: versionSummary,
+        type: "create",
+        sessionHeads: versionSessionHeads,
+        primaryHead,
       });
 
       Promise.all(generationTasks).then(() => {
@@ -416,10 +443,19 @@ function App() {
 
     setInputMode("text");
     setInitialPrompt(text);
-    doGenerateCode({
+    const commitHash = doGenerateCode({
       generationType: "create",
       inputMode: "text",
       prompt: { text, images: [] },
+    });
+
+    addVersion({
+      id: nanoid(),
+      createdAt: new Date(),
+      summary: text.trim().length > 0 ? text : "创建",
+      type: "create",
+      sessionHeads: {},
+      primaryHead: commitHash,
     });
   }
 
@@ -461,7 +497,12 @@ function App() {
       { text: modifiedUpdateInstruction, images: updateImages },
     ];
 
-    doGenerateCode({
+    const versionSessionHeads: Record<string, CommitHash | null> = {};
+    imageSessions.forEach((session) => {
+      versionSessionHeads[session.id] = session.head;
+    });
+
+    const commitHash = doGenerateCode({
       generationType: "update",
       inputMode,
       prompt:
@@ -473,6 +514,19 @@ function App() {
             },
       history: updatedHistory,
       isImportedFromCode,
+    });
+
+    if (selectedImageSessionId) {
+      versionSessionHeads[selectedImageSessionId] = commitHash;
+    }
+
+    addVersion({
+      id: nanoid(),
+      createdAt: new Date(),
+      summary: updateInstruction,
+      type: "edit",
+      sessionHeads: versionSessionHeads,
+      primaryHead: commitHash,
     });
 
     setUpdateInstruction("");
@@ -512,6 +566,14 @@ function App() {
     });
     addCommit(commit);
     setHead(commit.hash);
+    addVersion({
+      id: nanoid(),
+      createdAt: new Date(),
+      summary: "从代码导入",
+      type: "code_create",
+      sessionHeads: {},
+      primaryHead: commit.hash,
+    });
 
     // Set the app state
     setAppState(AppState.CODE_READY);
