@@ -1,65 +1,5 @@
-import { create } from "zustand";
-import { Commit, CommitHash, VariantStatus } from "../components/commits/types";
-
-// Store for app-wide state
-interface ProjectStore {
-  // Inputs
-  inputMode: "image" | "video" | "text";
-  setInputMode: (mode: "image" | "video" | "text") => void;
-  isImportedFromCode: boolean;
-  setIsImportedFromCode: (imported: boolean) => void;
-  referenceImages: string[];
-  setReferenceImages: (images: string[]) => void;
-  initialPrompt: string;
-  setInitialPrompt: (prompt: string) => void;
-  imageSessions: ImageSession[];
-  setImageSessions: (sessions: ImageSession[]) => void;
-  selectedImageSessionId: string | null;
-  setSelectedImageSessionId: (sessionId: string | null) => void;
-  setImageSessionHead: (sessionId: string, head: CommitHash | null) => void;
-
-  versions: VersionEntry[];
-  selectedVersionId: string | null;
-  addVersion: (version: VersionEntry) => void;
-  setVersion: (versionId: string) => void;
-  resetVersions: () => void;
-  removeLastVersion: () => void;
-
-  // Outputs
-  commits: Record<string, Commit>;
-  head: CommitHash | null;
-
-  addCommit: (commit: Commit) => void;
-  removeCommit: (hash: CommitHash) => void;
-  resetCommits: () => void;
-
-  appendCommitCode: (
-    hash: CommitHash,
-    numVariant: number,
-    code: string
-  ) => void;
-  setCommitCode: (hash: CommitHash, numVariant: number, code: string) => void;
-  setCommitArkuiCode: (
-    hash: CommitHash,
-    numVariant: number,
-    arkuiCode: string
-  ) => void;
-  updateSelectedVariantIndex: (hash: CommitHash, index: number) => void;
-  updateVariantStatus: (
-    hash: CommitHash,
-    numVariant: number,
-    status: VariantStatus,
-    errorMessage?: string
-  ) => void;
-  resizeVariants: (hash: CommitHash, count: number) => void;
-
-  setHead: (hash: CommitHash) => void;
-  resetHead: () => void;
-
-  executionConsoles: { [key: number]: string[] };
-  appendExecutionConsole: (variantIndex: number, line: string) => void;
-  resetExecutionConsoles: () => void;
-}
+import { defineStore } from "pinia";
+import type { Commit, CommitHash, VariantStatus } from "../components/commits/types";
 
 export interface ImageSession {
   id: string;
@@ -76,89 +16,107 @@ export interface VersionEntry {
   primaryHead: CommitHash | null;
 }
 
-export const useProjectStore = create<ProjectStore>((set) => ({
-  // Inputs and their setters
-  inputMode: "image",
-  setInputMode: (mode) => set({ inputMode: mode }),
-  isImportedFromCode: false,
-  setIsImportedFromCode: (imported) => set({ isImportedFromCode: imported }),
-  referenceImages: [],
-  setReferenceImages: (images) => set({ referenceImages: images }),
-  initialPrompt: "",
-  setInitialPrompt: (prompt) => set({ initialPrompt: prompt }),
-  imageSessions: [],
-  setImageSessions: (sessions) => set({ imageSessions: sessions }),
-  selectedImageSessionId: null,
-  setSelectedImageSessionId: (sessionId) =>
-    set((state) => ({
-      selectedImageSessionId: sessionId,
-      head:
+export interface ProjectStoreState {
+  inputMode: "image" | "video" | "text";
+  isImportedFromCode: boolean;
+  referenceImages: string[];
+  initialPrompt: string;
+  imageSessions: ImageSession[];
+  selectedImageSessionId: string | null;
+  versions: VersionEntry[];
+  selectedVersionId: string | null;
+  commits: Record<string, Commit>;
+  head: CommitHash | null;
+  executionConsoles: { [key: number]: string[] };
+}
+
+export const useProjectStore = defineStore("project", {
+  state: (): ProjectStoreState => ({
+    inputMode: "image",
+    isImportedFromCode: false,
+    referenceImages: [],
+    initialPrompt: "",
+    imageSessions: [],
+    selectedImageSessionId: null,
+    versions: [],
+    selectedVersionId: null,
+    commits: {},
+    head: null,
+    executionConsoles: {},
+  }),
+  actions: {
+    setInputMode(mode: "image" | "video" | "text") {
+      this.inputMode = mode;
+    },
+    setIsImportedFromCode(imported: boolean) {
+      this.isImportedFromCode = imported;
+    },
+    setReferenceImages(images: string[]) {
+      this.referenceImages = images;
+    },
+    setInitialPrompt(prompt: string) {
+      this.initialPrompt = prompt;
+    },
+    setImageSessions(sessions: ImageSession[]) {
+      this.imageSessions = sessions;
+    },
+    setSelectedImageSessionId(sessionId: string | null) {
+      this.selectedImageSessionId = sessionId;
+      this.head =
         sessionId === null
           ? null
-          : state.imageSessions.find((session) => session.id === sessionId)
-              ?.head ?? null,
-    })),
-  setImageSessionHead: (sessionId, head) =>
-    set((state) => ({
-      imageSessions: state.imageSessions.map((session) =>
+          : this.imageSessions.find((session) => session.id === sessionId)
+              ?.head ?? null;
+    },
+    setImageSessionHead(sessionId: string, head: CommitHash | null) {
+      this.imageSessions = this.imageSessions.map((session) =>
         session.id === sessionId ? { ...session, head } : session
-      ),
-      head:
-        state.selectedImageSessionId === sessionId ? head : state.head,
-    })),
+      );
+      if (this.selectedImageSessionId === sessionId) {
+        this.head = head;
+      }
+    },
+    addVersion(version: VersionEntry) {
+      this.versions = [...this.versions, version];
+      this.selectedVersionId = version.id;
+    },
+    setVersion(versionId: string) {
+      const version = this.versions.find((item) => item.id === versionId);
+      if (!version) return;
 
-  versions: [],
-  selectedVersionId: null,
-  addVersion: (version) =>
-    set((state) => ({
-      versions: [...state.versions, version],
-      selectedVersionId: version.id,
-    })),
-  setVersion: (versionId) =>
-    set((state) => {
-      const version = state.versions.find((item) => item.id === versionId);
-      if (!version) return state;
-
-      const nextImageSessions = state.imageSessions.map((session) => ({
+      const nextImageSessions = this.imageSessions.map((session) => ({
         ...session,
         head: version.sessionHeads[session.id] ?? session.head ?? null,
       }));
 
-      return {
-        selectedVersionId: versionId,
-        imageSessions: nextImageSessions,
-        head: state.selectedImageSessionId
-          ? version.sessionHeads[state.selectedImageSessionId] ?? null
-          : version.primaryHead,
+      this.selectedVersionId = versionId;
+      this.imageSessions = nextImageSessions;
+      this.head = this.selectedImageSessionId
+        ? version.sessionHeads[this.selectedImageSessionId] ?? null
+        : version.primaryHead;
+    },
+    resetVersions() {
+      this.versions = [];
+      this.selectedVersionId = null;
+    },
+    removeLastVersion() {
+      this.versions = this.versions.slice(0, -1);
+      this.selectedVersionId =
+        this.versions.length > 0
+          ? this.versions[this.versions.length - 1]?.id ?? null
+          : null;
+    },
+    addCommit(commit: Commit) {
+      const commitsWithStatus = {
+        ...commit,
+        variants: commit.variants.map((variant) => ({
+          ...variant,
+          status: variant.status || ("generating" as VariantStatus),
+        })),
       };
-    }),
-  resetVersions: () => set({ versions: [], selectedVersionId: null }),
-  removeLastVersion: () =>
-    set((state) => ({
-      versions: state.versions.slice(0, -1),
-      selectedVersionId:
-        state.versions.length > 1
-          ? state.versions[state.versions.length - 2]?.id ?? null
-          : null,
-    })),
 
-  // Outputs
-  commits: {},
-  head: null,
-
-  addCommit: (commit: Commit) => {
-    // Initialize variant statuses as 'generating'
-    const commitsWithStatus = {
-      ...commit,
-      variants: commit.variants.map((variant) => ({
-        ...variant,
-        status: variant.status || ("generating" as VariantStatus),
-      })),
-    };
-
-    set((state) => {
       const nextCommits = {
-        ...state.commits,
+        ...this.commits,
         [commitsWithStatus.hash]: commitsWithStatus,
       };
 
@@ -169,173 +127,152 @@ export const useProjectStore = create<ProjectStore>((set) => ({
         };
       }
 
-      return { commits: nextCommits };
-    });
-  },
-  removeCommit: (hash: CommitHash) => {
-    set((state) => {
-      const newCommits = { ...state.commits };
+      this.commits = nextCommits;
+    },
+    removeCommit(hash: CommitHash) {
+      const newCommits = { ...this.commits };
       delete newCommits[hash];
-      return { commits: newCommits };
-    });
-  },
-  resetCommits: () => set({ commits: {} }),
-
-  appendCommitCode: (hash: CommitHash, numVariant: number, code: string) =>
-    set((state) => {
-      const commit = state.commits[hash];
-      // Don't update if the commit is already committed
+      this.commits = newCommits;
+    },
+    resetCommits() {
+      this.commits = {};
+    },
+    appendCommitCode(hash: CommitHash, numVariant: number, code: string) {
+      const commit = this.commits[hash];
       if (commit.isCommitted) {
         throw new Error("Attempted to append code to a committed commit");
       }
-      return {
-        commits: {
-          ...state.commits,
-          [hash]: {
-            ...commit,
-            variants: commit.variants.map((variant, index) =>
-              index === numVariant
-                ? { ...variant, code: variant.code + code }
-                : variant
-            ),
-          },
+      this.commits = {
+        ...this.commits,
+        [hash]: {
+          ...commit,
+          variants: commit.variants.map((variant, index) =>
+            index === numVariant
+              ? { ...variant, code: variant.code + code }
+              : variant
+          ),
         },
       };
-    }),
-  setCommitCode: (hash: CommitHash, numVariant: number, code: string) =>
-    set((state) => {
-      const commit = state.commits[hash];
-      // Don't update if the commit is already committed
+    },
+    setCommitCode(hash: CommitHash, numVariant: number, code: string) {
+      const commit = this.commits[hash];
       if (commit.isCommitted) {
         throw new Error("Attempted to set code of a committed commit");
       }
-      return {
-        commits: {
-          ...state.commits,
-          [hash]: {
-            ...commit,
-            variants: commit.variants.map((variant, index) =>
-              index === numVariant ? { ...variant, code } : variant
-            ),
-          },
+      this.commits = {
+        ...this.commits,
+        [hash]: {
+          ...commit,
+          variants: commit.variants.map((variant, index) =>
+            index === numVariant ? { ...variant, code } : variant
+          ),
         },
       };
-    }),
-  setCommitArkuiCode: (hash: CommitHash, numVariant: number, arkuiCode: string) =>
-    set((state) => {
-      const commit = state.commits[hash];
-      // Don't update if the commit is already committed
+    },
+    setCommitArkuiCode(
+      hash: CommitHash,
+      numVariant: number,
+      arkuiCode: string
+    ) {
+      const commit = this.commits[hash];
       if (commit.isCommitted) {
         throw new Error("Attempted to set ArkUI code of a committed commit");
       }
-      return {
-        commits: {
-          ...state.commits,
-          [hash]: {
-            ...commit,
-            variants: commit.variants.map((variant, index) =>
-              index === numVariant ? { ...variant, arkuiCode } : variant
-            ),
-          },
+      this.commits = {
+        ...this.commits,
+        [hash]: {
+          ...commit,
+          variants: commit.variants.map((variant, index) =>
+            index === numVariant ? { ...variant, arkuiCode } : variant
+          ),
         },
       };
-    }),
-  updateSelectedVariantIndex: (hash: CommitHash, index: number) =>
-    set((state) => {
-      const commit = state.commits[hash];
-      // Don't update if the commit is already committed
+    },
+    updateSelectedVariantIndex(hash: CommitHash, index: number) {
+      const commit = this.commits[hash];
       if (commit.isCommitted) {
         throw new Error(
           "Attempted to update selected variant index of a committed commit"
         );
       }
-
-      // Just update the selected variant index without canceling other variants
-      // This allows users to switch between variants even while they're still generating
-      return {
-        commits: {
-          ...state.commits,
-          [hash]: {
-            ...commit,
-            selectedVariantIndex: index,
-          },
+      this.commits = {
+        ...this.commits,
+        [hash]: {
+          ...commit,
+          selectedVariantIndex: index,
         },
       };
-    }),
-  updateVariantStatus: (
-    hash: CommitHash,
-    numVariant: number,
-    status: VariantStatus,
-    errorMessage?: string
-  ) =>
-    set((state) => {
-      const commit = state.commits[hash];
-      if (!commit) return state; // No change if commit doesn't exist
+    },
+    updateVariantStatus(
+      hash: CommitHash,
+      numVariant: number,
+      status: VariantStatus,
+      errorMessage?: string
+    ) {
+      const commit = this.commits[hash];
+      if (!commit) return;
 
-      return {
-        commits: {
-          ...state.commits,
-          [hash]: {
-            ...commit,
-            variants: commit.variants.map((variant, index) =>
-              index === numVariant 
-                ? { ...variant, status, errorMessage: status === 'error' ? errorMessage : undefined } 
-                : variant
-            ),
-          },
+      this.commits = {
+        ...this.commits,
+        [hash]: {
+          ...commit,
+          variants: commit.variants.map((variant, index) =>
+            index === numVariant
+              ? {
+                  ...variant,
+                  status,
+                  errorMessage: status === "error" ? errorMessage : undefined,
+                }
+              : variant
+          ),
         },
       };
-    }),
-  resizeVariants: (hash: CommitHash, count: number) =>
-    set((state) => {
-      const commit = state.commits[hash];
-      if (!commit) return state; // No change if commit doesn't exist
+    },
+    resizeVariants(hash: CommitHash, count: number) {
+      const commit = this.commits[hash];
+      if (!commit) return;
 
-      // Resize variants array to match backend count
       const currentVariants = commit.variants;
-      const newVariants = Array(count).fill(null).map((_, index) => 
-        currentVariants[index] || {
-          code: "",
-          arkuiCode: "",
-          status: "generating" as VariantStatus,
-        }
-      );
+      const newVariants = Array(count)
+        .fill(null)
+        .map((_, index) =>
+          currentVariants[index] || {
+            code: "",
+            arkuiCode: "",
+            status: "generating" as VariantStatus,
+          }
+        );
 
-      return {
-        commits: {
-          ...state.commits,
-          [hash]: {
-            ...commit,
-            variants: newVariants,
-            selectedVariantIndex: Math.min(commit.selectedVariantIndex, count - 1),
-          },
+      this.commits = {
+        ...this.commits,
+        [hash]: {
+          ...commit,
+          variants: newVariants,
+          selectedVariantIndex: Math.min(commit.selectedVariantIndex, count - 1),
         },
       };
-    }),
-
-  setHead: (hash: CommitHash) =>
-    set((state) => ({
-      head: hash,
-      imageSessions: state.selectedImageSessionId
-        ? state.imageSessions.map((session) =>
-            session.id === state.selectedImageSessionId
-              ? { ...session, head: hash }
-              : session
-          )
-        : state.imageSessions,
-    })),
-  resetHead: () => set({ head: null }),
-
-  executionConsoles: {},
-  appendExecutionConsole: (variantIndex: number, line: string) =>
-    set((state) => ({
-      executionConsoles: {
-        ...state.executionConsoles,
-        [variantIndex]: [
-          ...(state.executionConsoles[variantIndex] || []),
-          line,
-        ],
-      },
-    })),
-  resetExecutionConsoles: () => set({ executionConsoles: {} }),
-}));
+    },
+    setHead(hash: CommitHash) {
+      this.head = hash;
+      if (this.selectedImageSessionId) {
+        this.imageSessions = this.imageSessions.map((session) =>
+          session.id === this.selectedImageSessionId
+            ? { ...session, head: hash }
+            : session
+        );
+      }
+    },
+    resetHead() {
+      this.head = null;
+    },
+    appendExecutionConsole(variantIndex: number, line: string) {
+      this.executionConsoles = {
+        ...this.executionConsoles,
+        [variantIndex]: [...(this.executionConsoles[variantIndex] || []), line],
+      };
+    },
+    resetExecutionConsoles() {
+      this.executionConsoles = {};
+    },
+  },
+});
