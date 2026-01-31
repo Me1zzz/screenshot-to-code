@@ -1,4 +1,4 @@
-import toast from "react-hot-toast";
+import { createToastInterface } from "vue-toastification";
 import { WS_BACKEND_URL } from "./config";
 import {
   APP_ERROR_WEB_SOCKET_CODE,
@@ -117,8 +117,12 @@ function extractHtmlFromChunk(
   return extracted;
 }
 
+const toast = createToastInterface({
+  toastClassName: "dark:bg-zinc-950 dark:text-white",
+});
+
 export function generateCode(
-  wsRef: React.MutableRefObject<WebSocket | null>,
+  wsRef: { current: WebSocket | null },
   params: FullGenerationSettings,
   callbacks: CodeGenerationCallbacks
 ) {
